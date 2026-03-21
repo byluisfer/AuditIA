@@ -1,6 +1,7 @@
 {
   "name": "auditia",
   "version": "0.1.0",
+  "description": "AuditIA - Tu AI Product Manager para análisis automático de UX, Performance, Accesibilidad y SEO",
   "private": true,
   "scripts": {
     "dev": "next dev",
