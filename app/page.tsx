@@ -148,6 +148,24 @@ export default function Home() {
 
         </div>
       </div>
+
+      {/* Footer */}
+      <footer
+        className="fixed bottom-0 inset-x-0 z-60 flex flex-col"
+        style={{ backgroundColor: "var(--bg)" }}
+      >
+        <div style={{ height: "1px", backgroundColor: "color-mix(in srgb, var(--secondary) 30%, transparent)" }} />
+        <div
+          className="flex items-center justify-between px-6 py-2.5 text-[10px] tracking-[0.18em] uppercase"
+          style={{ color: "color-mix(in srgb, var(--secondary) 70%, transparent)" }}
+        >
+          <span>SYS_ENV: PRODUCCIÓN &nbsp;|&nbsp; LOC: US_EAST_1 &nbsp;|&nbsp; ENC: AES_256</span>
+          <div className="flex items-center gap-8">
+            <a href="#" className="underline underline-offset-2 hover:text-(--secondary) transition-colors duration-150">Documentación</a>
+            <a href="#" className="underline underline-offset-2 hover:text-(--secondary) transition-colors duration-150">API_REF</a>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
