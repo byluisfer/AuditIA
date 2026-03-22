@@ -1,35 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  /* Light mode — defaults */
-  --bg:        #F0FDF4;
-  --surface:   #E2F5E3;
-  --text:      #052E16;
-  --heading:   #0a1a0a;
-  --primary:   #16A34A;
-  --secondary: #22C55E;
-  --accent:    #4ADE80;
-
-  /* Overlay effects — subtle in light mode */
-  --scanline-color:  rgba(0,0,0,0.04);
-  --vignette-color:  rgba(0,0,0,0.18);
-  --glow-strength:   3%;
+  /* ── Light mode ── */
+  --bg:             #f0f5f0;
+  --surface:        #e4ece4;
+  --surface-high:   #d4dfd4;
+  --surface-bright: #c8d6c8;
+  --text:           #1a1e1a;
+  --text-dim:       #4a514a;
+  --heading:        #0a0f0a;
+  --primary:        #007a40;
+  --primary-on:     #ffffff;
+  --secondary:      #005a30;
+  --outline:        rgba(69,73,67,0.25);
+  --scanline-color: rgba(0,0,0,0.025);
+  --vignette-color: rgba(0,0,0,0.10);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:        #020402;
-    --surface:   #0f150f;
-    --text:      #A7F3D0;
-    --heading:   #ffffff;
-    --primary:   #22C55E;
-    --secondary: #4ADE80;
-    --accent:    #86EFAC;
-
-    /* Overlay effects — strong in dark mode */
-    --scanline-color:  rgba(0,0,0,0.13);
-    --vignette-color:  rgba(0,0,0,0.75);
-    --glow-strength:   6%;
+    /* ── Dark mode (Terminal Logic palette) ── */
+    --bg:             #0b0f0b;
+    --surface:        #10150f;
+    --surface-high:   #212720;
+    --surface-bright: #272e26;
+    --text:           #e0e4dd;
+    --text-dim:       #a8aca5;
+    --heading:        #ffffff;
+    --primary:        #6bff8f;
+    --primary-on:     #005f28;
+    --secondary:      #006d44;
+    --outline:        rgba(69,73,67,0.20);
+    --scanline-color: rgba(224,228,221,0.02);
+    --vignette-color: rgba(0,0,0,0.55);
   }
 }
 
