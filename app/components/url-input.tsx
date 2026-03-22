@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef } from "react";
 
-export function UrlInput() {
-  const [url, setUrl] = useState("");
+type Props = {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+};
+
+export function UrlInput({ value: url, onChange, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -40,8 +45,9 @@ export function UrlInput() {
           ref={inputRef}
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          className="absolute inset-0 w-full opacity-0 cursor-text"
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="absolute inset-0 w-full opacity-0 cursor-text disabled:cursor-not-allowed"
           style={{ fontFamily: "inherit" }}
         />
       </div>
