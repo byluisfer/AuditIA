@@ -49,6 +49,7 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
           disabled={disabled}
           className="absolute inset-0 w-full opacity-0 cursor-text disabled:cursor-not-allowed"
           style={{ fontFamily: "inherit" }}
+          suppressHydrationWarning
         />
       </div>
     </div>
