@@ -64,8 +64,8 @@ export function HeroSection() {
         }}
       >
         {status === "idle" && "[ SISTEMA_LISTO: ESPERANDO_INPUT ]"}
-        {status === "loading" && "[ INICIANDO_ANÁLISIS... ]"}
-        {status === "streaming" && "[ RECIBIENDO_DATOS... ]"}
+        {status === "loading" && "[ EJECUTANDO_LIGHTHOUSE... PUEDE TARDAR ~60s ]"}
+        {status === "streaming" && "[ GENERANDO_INFORME... ]"}
         {status === "done" && "[ ANÁLISIS_COMPLETO ]"}
         {status === "error" && "[ ERROR: REVISAR_CONSOLA ]"}
       </div>
