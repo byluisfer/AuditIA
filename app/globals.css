@@ -1,30 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  /* Dark Mode */
-  --bg-dark: #020402;
-  --text-dark: #A7F3D0;
-  --primary-dark: #22C55E;
-  --secondary-dark: #4ADE80;
-  --accent-dark: #86EFAC;
+  /* Light mode — defaults */
+  --bg:        #F0FDF4;
+  --surface:   #E2F5E3;
+  --text:      #052E16;
+  --heading:   #0a1a0a;
+  --primary:   #16A34A;
+  --secondary: #22C55E;
+  --accent:    #4ADE80;
 
-  /* Light Mode */
-  --bg-light: #F0FDF4;
-  --text-light: #052E16;
-  --primary-light: #16A34A;
-  --secondary-light: #22C55E;
-  --accent-light: #4ADE80;
+  /* Overlay effects — subtle in light mode */
+  --scanline-color:  rgba(0,0,0,0.04);
+  --vignette-color:  rgba(0,0,0,0.18);
+  --glow-strength:   3%;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #020402;
+    --surface:   #0f150f;
+    --text:      #A7F3D0;
+    --heading:   #ffffff;
+    --primary:   #22C55E;
+    --secondary: #4ADE80;
+    --accent:    #86EFAC;
+
+    /* Overlay effects — strong in dark mode */
+    --scanline-color:  rgba(0,0,0,0.13);
+    --vignette-color:  rgba(0,0,0,0.75);
+    --glow-strength:   6%;
+  }
 }
 
 body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  @apply bg-green-50 dark:bg-[#020402] text-green-950 dark:text-green-100 transition-colors;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.2s, color 0.2s;
 }
 
 code, pre {
@@ -35,4 +48,13 @@ code, pre {
   .auditia-gradient {
     @apply bg-gradient-to-br from-green-400 to-green-600 dark:from-green-500 dark:to-green-700;
   }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
 }
