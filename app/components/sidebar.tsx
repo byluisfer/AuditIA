@@ -1,7 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+function subscribeStorage(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
 
 const NAV_ITEMS = [
   {
@@ -69,29 +74,25 @@ const EXPANDED_W = "15rem";
 const COLLAPSED_W = "3.5rem";
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar-collapsed") === "true";
-  });
+  const collapsed = useSyncExternalStore(
+    subscribeStorage,
+    () => localStorage.getItem("sidebar-collapsed") === "true",
+    () => false,
+  );
   const pathname = usePathname();
 
-  // Sync CSS variable after mount — read storage directly, no setState needed
+  // Keep CSS variable in sync with collapsed state
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed") === "true";
     document.documentElement.style.setProperty(
       "--sidebar-w",
-      saved ? COLLAPSED_W : EXPANDED_W,
+      collapsed ? COLLAPSED_W : EXPANDED_W,
     );
-  }, []);
+  }, [collapsed]);
 
   function toggle() {
     const next = !collapsed;
-    setCollapsed(next);
-    document.documentElement.style.setProperty(
-      "--sidebar-w",
-      next ? COLLAPSED_W : EXPANDED_W,
-    );
     localStorage.setItem("sidebar-collapsed", String(next));
+    window.dispatchEvent(new StorageEvent("storage"));
   }
 
   return (
