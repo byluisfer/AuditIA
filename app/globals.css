@@ -2,48 +2,55 @@
 
 :root {
   /* ── Light mode ── */
-  --bg:             #f0f5f0;
-  --surface:        #e4ece4;
-  --surface-high:   #d4dfd4;
+  --bg: #f0f5f0;
+  --surface: #e4ece4;
+  --surface-high: #d4dfd4;
   --surface-bright: #c8d6c8;
-  --text:           #1a1e1a;
-  --text-dim:       #4a514a;
-  --heading:        #0a0f0a;
-  --primary:        #007a40;
-  --primary-on:     #ffffff;
-  --secondary:      #005a30;
-  --outline:        rgba(69,73,67,0.25);
-  --scanline-color: rgba(0,0,0,0.025);
-  --vignette-color: rgba(0,0,0,0.10);
+  --text: #1a1e1a;
+  --text-dim: #4a514a;
+  --heading: #0a0f0a;
+  --primary: #007a40;
+  --primary-on: #ffffff;
+  --secondary: #005a30;
+  --outline: rgba(69, 73, 67, 0.25);
+  --scanline-color: rgba(0, 0, 0, 0.025);
+  --vignette-color: rgba(0, 0, 0, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     /* ── Dark mode (Terminal Logic palette) ── */
-    --bg:             #0b0f0b;
-    --surface:        #10150f;
-    --surface-high:   #212720;
+    --bg: #0b0f0b;
+    --surface: #10150f;
+    --surface-high: #212720;
     --surface-bright: #272e26;
-    --text:           #e0e4dd;
-    --text-dim:       #a8aca5;
-    --heading:        #ffffff;
-    --primary:        #6bff8f;
-    --primary-on:     #005f28;
-    --secondary:      #006d44;
-    --outline:        rgba(69,73,67,0.20);
-    --scanline-color: rgba(224,228,221,0.02);
-    --vignette-color: rgba(0,0,0,0.55);
+    --text: #e0e4dd;
+    --text-dim: #a8aca5;
+    --heading: #ffffff;
+    --primary: #6bff8f;
+    --primary-on: #005f28;
+    --secondary: #006d44;
+    --outline: rgba(69, 73, 67, 0.2);
+    --scanline-color: rgba(224, 228, 221, 0.02);
+    --vignette-color: rgba(0, 0, 0, 0.55);
   }
 }
 
 body {
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family:
+    var(--font-inter),
+    system-ui,
+    -apple-system,
+    sans-serif;
   background-color: var(--bg);
   color: var(--text);
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
-code, pre {
+code,
+pre {
   font-family: var(--font-jetbrains-mono), monospace;
 }
 
@@ -54,8 +61,13 @@ code, pre {
 }
 
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .cursor-blink {
@@ -78,8 +90,13 @@ code, pre {
 }
 
 @keyframes terminal-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .terminal-pulse {
@@ -87,8 +104,14 @@ code, pre {
 }
 
 @keyframes results-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .results-fade-in {
