@@ -61,3 +61,36 @@ code, pre {
 .cursor-blink {
   animation: cursor-blink 1s step-end infinite;
 }
+
+@keyframes terminal-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.terminal-line-in {
+  animation: terminal-line-in 0.18s ease forwards;
+}
+
+@keyframes terminal-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.terminal-pulse {
+  animation: terminal-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes results-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.results-fade-in {
+  animation: results-fade-in 0.4s ease forwards;
+}
