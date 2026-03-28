@@ -1,8 +1,9 @@
 {
-  "packages": {
-    "apt": ["chromium"]
-  },
-  "variables": {
-    "CHROME_PATH": "/usr/bin/chromium"
+  "$schema": "https://schema.railpack.com",
+  "deploy": {
+    "aptPackages": ["chromium"],
+    "variables": {
+      "CHROME_PATH": "/usr/bin/chromium"
+    }
   }
 }
