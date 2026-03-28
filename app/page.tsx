@@ -1,5 +1,4 @@
 import { Scanlines, Vignette } from "./components/overlays";
-import { Header } from "./components/header";
 import { Sidebar } from "./components/sidebar";
 import { HeroSection } from "./components/hero-section";
 import { Footer } from "./components/footer";
@@ -15,7 +14,6 @@ export default function Home() {
     >
       <Scanlines />
       <Vignette />
-      <Header />
       <Sidebar />
       <HeroSection />
       <Footer />

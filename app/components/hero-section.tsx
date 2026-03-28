@@ -123,16 +123,16 @@ interface TLine {
 }
 
 const LINE_TIMINGS = [
-  400,   // Iniciando secuencia
-  1400,  // Objetivo identificado
-  3000,  // Entrando al dominio
-  5200,  // Iniciando Lighthouse
-  8500,  // Diagnósticos de rendimiento
-  14000, // Analizando métricas
+  400, // Iniciando secuencia
+  1400, // Objetivo identificado
+  3000, // Entrando al dominio
+  5200, // Iniciando Lighthouse
+  8500, // Performance diagnostics
+  14000, // Analysing metrics
   20000, // Rendimiento obtenido
   26000, // Accesibilidad
-  32000, // Buenas prácticas
-  38000, // Señales SEO
+  32000, // Best practices
+  38000, // SEO signals
   44000, // Compilando informe
 ];
 
@@ -192,17 +192,17 @@ function TerminalLoader({
   }
 
   const lines: TLine[] = [
-    { text: "Iniciando secuencia de auditoría...",        type: "dim" },
-    { text: `Objetivo identificado: ${url}`,              type: "highlight" },
-    { text: `Entrando en ${domain}...`,                   type: "highlight" },
-    { text: "Iniciando motor de Lighthouse...",           type: "default" },
-    { text: "Ejecutando diagnósticos de rendimiento...",  type: "default" },
-    { text: "Analizando métricas de rendimiento...",      type: "default" },
-    { text: "Datos de rendimiento obtenidos.",            type: "success" },
-    { text: "Escaneando árbol de accesibilidad...",       type: "default" },
-    { text: "Comprobando buenas prácticas...",            type: "default" },
-    { text: "Obteniendo señales SEO...",                  type: "default" },
-    { text: "Compilando informe final...",                type: "default" },
+    { text: "Iniciando secuencia de auditoría...", type: "dim" },
+    { text: `Objetivo identificado: ${url}`, type: "highlight" },
+    { text: `Entrando en ${domain}...`, type: "highlight" },
+    { text: "Iniciando motor de Lighthouse...", type: "default" },
+    { text: "Ejecutando diagnósticos de rendimiento...", type: "default" },
+    { text: "Analizando métricas de rendimiento...", type: "default" },
+    { text: "Datos de rendimiento obtenidos.", type: "success" },
+    { text: "Escaneando árbol de accesibilidad...", type: "default" },
+    { text: "Comprobando buenas prácticas...", type: "default" },
+    { text: "Obteniendo señales SEO...", type: "default" },
+    { text: "Compilando informe final...", type: "default" },
   ];
 
   useEffect(() => {
@@ -221,7 +221,10 @@ function TerminalLoader({
     const fl: TLine =
       apiStatus === "error"
         ? { text: `Error: ${errorMsg}`, type: "error" }
-        : { text: "Análisis completado. Generando informe...", type: "success" };
+        : {
+            text: "Análisis completado. Generando informe...",
+            type: "success",
+          };
 
     const t1 = setTimeout(() => setFinalLine(fl), 500);
     const t2 = setTimeout(onTransitionDone, 2300);
@@ -847,8 +850,12 @@ export function HeroSection() {
 
   return (
     <main
-      className="relative z-20 ml-60 flex flex-col items-center justify-center min-h-screen px-12 lg:px-24"
-      style={{ backgroundColor: "var(--bg)" }}
+      className="relative z-20 flex flex-col items-center justify-center min-h-screen px-12 lg:px-24"
+      style={{
+        marginLeft: "var(--sidebar-w, 15rem)",
+        transition: "margin-left 0.2s ease",
+        backgroundColor: "var(--bg)",
+      }}
     >
       {/* ── FORM VIEW ──────────────────────────────────────────────────────── */}
       {viewState === "form" && (

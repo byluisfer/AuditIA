@@ -1,8 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+
+const ROUTE_LABELS: Record<string, string> = {
+  "/": "dashboard",
+  "/logs": "logs",
+  "/analytics": "analytics",
+};
 
 export function Header() {
   const [time, setTime] = useState("");
+  const pathname = usePathname();
+  const page = ROUTE_LABELS[pathname] ?? pathname.replace("/", "");
 
   useEffect(() => {
     function tick() {
@@ -22,20 +31,25 @@ export function Header() {
         fontFamily: "var(--font-jetbrains-mono), monospace",
       }}
     >
-      {/* Left — brand */}
-      <div className="flex items-center gap-4 text-[11px] tracking-[0.2em] uppercase">
-        <span className="font-black" style={{ color: "var(--primary)" }}>
-          AUDIT_IA
-        </span>
-        <span style={{ opacity: 0.2 }}>|</span>
-        <span style={{ color: "var(--text-dim)", opacity: 0.6 }}>v1.0.0</span>
+      {/* Left — breadcrumb */}
+      <div className="flex items-center gap-2 text-[11px] tracking-[0.15em] uppercase">
+        <span style={{ color: "var(--text-dim)", opacity: 0.4 }}>~/</span>
+        <span style={{ color: "var(--primary)" }}>{page}</span>
+        <span
+          className="cursor-blink inline-block translate-y-px"
+          style={{
+            width: "0.45em",
+            height: "0.85em",
+            backgroundColor: "var(--primary)",
+            opacity: 0.7,
+          }}
+        />
       </div>
 
-      {/* Center — live clock easter egg */}
+      {/* Center — live clock */}
       <div
-        className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 text-[10px] tracking-[0.2em]"
-        style={{ color: "var(--text-dim)", opacity: 0.4 }}
-        title="Hora del sistema"
+        className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase"
+        style={{ color: "var(--text-dim)", opacity: 0.35 }}
       >
         <span>SYS_TIME:</span>
         <span style={{ color: "var(--primary)", opacity: 1 }}>{time}</span>
