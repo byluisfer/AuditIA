@@ -1,0 +1,8 @@
+{
+  "packages": {
+    "apt": ["chromium"]
+  },
+  "variables": {
+    "CHROME_PATH": "/usr/bin/chromium"
+  }
+}
