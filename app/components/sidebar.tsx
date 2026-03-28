@@ -75,14 +75,7 @@ export function Sidebar() {
   });
   const pathname = usePathname();
 
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--sidebar-w",
-      collapsed ? COLLAPSED_W : EXPANDED_W,
-    );
-    localStorage.setItem("sidebar-collapsed", String(collapsed));
-  }, [collapsed]);
-
+  // Sync CSS variable after mount — read storage directly, no setState needed
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed") === "true";
     document.documentElement.style.setProperty(
@@ -91,8 +84,19 @@ export function Sidebar() {
     );
   }, []);
 
+  function toggle() {
+    const next = !collapsed;
+    setCollapsed(next);
+    document.documentElement.style.setProperty(
+      "--sidebar-w",
+      next ? COLLAPSED_W : EXPANDED_W,
+    );
+    localStorage.setItem("sidebar-collapsed", String(next));
+  }
+
   return (
     <aside
+      suppressHydrationWarning
       className="fixed left-0 top-0 bottom-0 z-50 flex flex-col"
       style={{
         width: collapsed ? COLLAPSED_W : EXPANDED_W,
@@ -106,7 +110,7 @@ export function Sidebar() {
       <div
         className="shrink-0 flex items-center gap-3 px-4"
         style={{
-          height: "3.5rem",
+          height: "3rem",
           borderBottom: "1px solid var(--surface-high)",
           justifyContent: collapsed ? "center" : "space-between",
         }}
@@ -133,7 +137,7 @@ export function Sidebar() {
         )}
 
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={toggle}
           className="flex items-center justify-center shrink-0 transition-all duration-150"
           style={{
             width: 26,

@@ -1,11 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { UrlInput } from "./url-input";
-import type {
-  LighthouseReport,
-  AuditResult,
-  CategoryReport,
-} from "../api/analyze/route";
+import type { LighthouseReport } from "../api/analyze/route";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ApiStatus = "idle" | "loading" | "done" | "error";
@@ -24,14 +20,6 @@ function scoreToLabel(score: number): string {
   if (score >= 50) return "REGULAR";
   return "CRÍTICO";
 }
-const METRIC_LABELS: Record<string, string> = {
-  "first-contentful-paint": "Primera Pintura con Contenido",
-  "largest-contentful-paint": "Mayor Pintura con Contenido",
-  "total-blocking-time": "Tiempo Total de Bloqueo",
-  "cumulative-layout-shift": "Desplazamiento Acumulativo",
-  "speed-index": "Índice de Velocidad",
-  interactive: "Tiempo hasta Interactivo",
-};
 
 // ── HUD corner marks ──────────────────────────────────────────────────────────
 function Corners({ color = "var(--primary)" }: { color?: string }) {
@@ -551,244 +539,6 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
   );
 }
 
-// ── Metrics Grid ──────────────────────────────────────────────────────────────
-function MetricsGrid({ metrics }: { metrics: AuditResult[] }) {
-  if (!metrics.length) return null;
-  return (
-    <div className="grid grid-cols-3 gap-2 mb-6">
-      {metrics.map((m) => {
-        const color = scoreToColor(
-          m.score !== null ? Math.round(m.score * 100) : null,
-        );
-        return (
-          <div
-            key={m.id}
-            className="p-3"
-            style={{ backgroundColor: "var(--surface-high)" }}
-          >
-            <div
-              className="text-xs mb-1"
-              style={{
-                color: "var(--text-dim)",
-                fontFamily: "var(--font-jetbrains-mono), monospace",
-              }}
-            >
-              {METRIC_LABELS[m.id] ?? m.id}
-            </div>
-            <div
-              className="text-base font-black"
-              style={{
-                color,
-                fontFamily: "var(--font-space-grotesk), sans-serif",
-              }}
-            >
-              {m.displayValue ?? "—"}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Audit Item ────────────────────────────────────────────────────────────────
-function AuditItem({
-  audit,
-  showSavings,
-}: {
-  audit: AuditResult;
-  showSavings?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const score = audit.score !== null ? Math.round(audit.score * 100) : null;
-  const color = scoreToColor(score);
-  const plainDesc = audit.description.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
-
-  return (
-    <div style={{ borderBottom: "1px solid var(--surface-high)" }}>
-      <button
-        className="w-full flex items-start gap-3 py-3 text-left"
-        onClick={() => setExpanded((p) => !p)}
-        aria-expanded={expanded}
-      >
-        <span
-          className="shrink-0 w-2.5 h-2.5 rounded-full mt-1"
-          style={{ backgroundColor: color }}
-          aria-hidden="true"
-        />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="text-sm"
-              style={{
-                color: "var(--text)",
-                fontFamily: "var(--font-jetbrains-mono), monospace",
-              }}
-            >
-              {audit.title}
-            </span>
-            {audit.displayValue && (
-              <span className="text-xs" style={{ color }}>
-                {audit.displayValue}
-              </span>
-            )}
-            {showSavings && audit.savingsMs && audit.savingsMs > 0 && (
-              <span
-                className="text-xs px-1.5 py-0.5"
-                style={{
-                  backgroundColor: "var(--surface-high)",
-                  color: "#ffa400",
-                }}
-              >
-                −{(audit.savingsMs / 1000).toFixed(2)}s
-              </span>
-            )}
-          </div>
-          {expanded && (
-            <p
-              className="text-xs mt-2 leading-relaxed"
-              style={{
-                color: "var(--text-dim)",
-                fontFamily: "var(--font-jetbrains-mono), monospace",
-              }}
-            >
-              {plainDesc}
-              {audit.warnings?.map((w, i) => (
-                <span
-                  key={i}
-                  className="block mt-1"
-                  style={{ color: "#ffa400" }}
-                >
-                  ⚠ {w}
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
-        <span
-          className="text-xs shrink-0 mt-0.5"
-          style={{
-            color: "var(--text-dim)",
-            display: "inline-block",
-            transform: expanded ? "rotate(180deg)" : undefined,
-            transition: "transform 0.15s",
-          }}
-          aria-hidden="true"
-        >
-          ▾
-        </span>
-      </button>
-    </div>
-  );
-}
-
-// ── Category Section ──────────────────────────────────────────────────────────
-function CategorySection({ category }: { category: CategoryReport }) {
-  const [passedExpanded, setPassedExpanded] = useState(false);
-  const color = scoreToColor(category.score);
-
-  return (
-    <div className="mb-8">
-      <div
-        className="flex items-center gap-3 mb-4 pb-2"
-        style={{ borderBottom: "1px solid var(--primary)" }}
-      >
-        <span
-          className="text-xl font-black"
-          style={{
-            color,
-            fontFamily: "var(--font-space-grotesk), sans-serif",
-            minWidth: "2.5rem",
-          }}
-        >
-          {category.score}
-        </span>
-        <span
-          className="text-sm tracking-[0.15em] uppercase font-bold"
-          style={{
-            color: "var(--heading)",
-            fontFamily: "var(--font-jetbrains-mono), monospace",
-          }}
-        >
-          {category.title}
-        </span>
-        <span
-          className="ml-auto text-xs tracking-widest uppercase"
-          style={{ color }}
-        >
-          {scoreToLabel(category.score)}
-        </span>
-      </div>
-
-      {category.metrics.length > 0 && (
-        <MetricsGrid metrics={category.metrics} />
-      )}
-
-      {category.opportunities.length > 0 && (
-        <div className="mb-4">
-          <div
-            className="text-xs tracking-[0.2em] uppercase mb-2"
-            style={{
-              color: "#ffa400",
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-            }}
-          >
-            Oportunidades
-          </div>
-          {category.opportunities.map((a) => (
-            <AuditItem key={a.id} audit={a} showSavings />
-          ))}
-        </div>
-      )}
-
-      {category.diagnostics.length > 0 && (
-        <div className="mb-4">
-          <div
-            className="text-xs tracking-[0.2em] uppercase mb-2"
-            style={{
-              color: "#ff4e42",
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-            }}
-          >
-            Diagnósticos
-          </div>
-          {category.diagnostics.map((a) => (
-            <AuditItem key={a.id} audit={a} />
-          ))}
-        </div>
-      )}
-
-      {category.passed.length > 0 && (
-        <div>
-          <button
-            className="text-xs tracking-[0.2em] uppercase mb-2 flex items-center gap-2"
-            style={{
-              color: "#0cce6b",
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-            }}
-            onClick={() => setPassedExpanded((p) => !p)}
-            aria-expanded={passedExpanded}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                transform: passedExpanded ? "rotate(90deg)" : undefined,
-                transition: "transform 0.15s",
-              }}
-              aria-hidden="true"
-            >
-              ▶
-            </span>
-            {category.passed.length} auditorías aprobadas
-          </button>
-          {passedExpanded &&
-            category.passed.map((a) => <AuditItem key={a.id} audit={a} />)}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── HeroSection ───────────────────────────────────────────────────────────────
 export function HeroSection() {
   const [url, setUrl] = useState("");
@@ -990,14 +740,15 @@ export function HeroSection() {
 
       {/* ── RESULTS VIEW ───────────────────────────────────────────────────── */}
       {viewState === "results" && report && (
-        <div className="w-full max-w-2xl results-fade-in">
-          {/* Results meta + reset */}
-          <div className="flex items-center justify-between mb-6">
+        <div className="w-full max-w-3xl results-fade-in flex flex-col gap-8">
+          {/* Meta bar */}
+          <div className="flex items-center justify-between">
             <div
-              className="text-xs"
+              className="text-[10px] tracking-[0.15em] uppercase"
               style={{
                 color: "var(--text-dim)",
                 fontFamily: "var(--font-jetbrains-mono), monospace",
+                opacity: 0.5,
               }}
             >
               {report.url}
@@ -1005,24 +756,30 @@ export function HeroSection() {
               {report.strategy}
               {" · "}v{report.lighthouseVersion}
               {report.fetchTime && (
-                <> · {new Date(report.fetchTime).toLocaleTimeString()}</>
+                <>
+                  {" "}
+                  ·{" "}
+                  {new Date(report.fetchTime).toLocaleTimeString("es-ES", {
+                    hour12: false,
+                  })}
+                </>
               )}
             </div>
             <button
-              className="text-xs px-3 py-1.5 tracking-[0.15em] uppercase transition-all duration-150"
+              className="text-[10px] px-3 py-1.5 tracking-[0.15em] uppercase transition-all duration-150"
               style={{
                 fontFamily: "var(--font-jetbrains-mono), monospace",
-                color: "var(--primary)",
-                border: "1px solid var(--primary)",
+                color: "var(--text-dim)",
+                border: "1px solid var(--outline)",
                 backgroundColor: "transparent",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "var(--primary)";
-                e.currentTarget.style.color = "var(--primary-on)";
+                e.currentTarget.style.color = "var(--primary)";
+                e.currentTarget.style.borderColor = "var(--primary)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = "var(--primary)";
+                e.currentTarget.style.color = "var(--text-dim)";
+                e.currentTarget.style.borderColor = "var(--outline)";
               }}
               onClick={handleReset}
             >
@@ -1030,48 +787,231 @@ export function HeroSection() {
             </button>
           </div>
 
-          {/* Score gauges */}
+          {/* Score cards */}
           <div style={{ position: "relative" }}>
             <Corners />
             <div
-              className="grid grid-cols-4 gap-4 p-8 mb-6"
               style={{
                 backgroundColor: "var(--surface)",
-                borderLeft: "2px solid var(--primary)",
                 border: "1px solid var(--outline)",
-                borderLeftWidth: 2,
-                borderLeftColor: "var(--primary)",
-                boxShadow: "0 0 40px rgba(107,255,143,0.04)",
+                borderLeft: "2px solid var(--primary)",
+                boxShadow:
+                  "0 0 60px rgba(107,255,143,0.04), 0 8px 32px rgba(0,0,0,0.2)",
               }}
             >
-              <ScoreGauge
-                score={report.categories.performance.score}
-                label="Rendimiento"
-              />
-              <ScoreGauge
-                score={report.categories.accessibility.score}
-                label="Accesibilidad"
-              />
-              <ScoreGauge
-                score={report.categories.bestPractices.score}
-                label="Buenas Prácticas"
-              />
-              <ScoreGauge score={report.categories.seo.score} label="SEO" />
+              {/* Card header */}
+              <div
+                className="flex items-center justify-between px-6 py-3"
+                style={{
+                  borderBottom: "1px solid var(--surface-high)",
+                  backgroundColor: "var(--surface-high)",
+                }}
+              >
+                <div
+                  className="flex items-center gap-3 text-[10px] tracking-[0.2em] uppercase"
+                  style={{
+                    color: "var(--text-dim)",
+                    fontFamily: "var(--font-jetbrains-mono), monospace",
+                  }}
+                >
+                  <span style={{ color: "#0cce6b", opacity: 0.7 }}>{"//"}</span>
+                  <span style={{ color: "#0cce6b" }}>root@auditia</span>
+                </div>
+                <span
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono), monospace",
+                    fontSize: "9px",
+                    letterSpacing: "0.14em",
+                    padding: "2px 7px",
+                    border: "1px solid #0cce6b",
+                    color: "#0cce6b",
+                  }}
+                >
+                  COMPLETO
+                </span>
+              </div>
+
+              {/* Gauges */}
+              <div className="grid grid-cols-4 gap-0">
+                {[
+                  {
+                    score: report.categories.performance.score,
+                    label: "Rendimiento",
+                  },
+                  {
+                    score: report.categories.accessibility.score,
+                    label: "Accesibilidad",
+                  },
+                  {
+                    score: report.categories.bestPractices.score,
+                    label: "Buenas Prácticas",
+                  },
+                  { score: report.categories.seo.score, label: "SEO" },
+                ].map(({ score, label }, i, arr) => (
+                  <div
+                    key={label}
+                    className="flex flex-col items-center py-10 px-4"
+                    style={{
+                      borderRight:
+                        i < arr.length - 1
+                          ? "1px solid var(--surface-high)"
+                          : "none",
+                    }}
+                  >
+                    <ScoreGauge score={score} label={label} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Overall score bar */}
+              <div
+                className="px-8 py-4 flex items-center gap-4"
+                style={{ borderTop: "1px solid var(--surface-high)" }}
+              >
+                {(() => {
+                  const avg = Math.round(
+                    (report.categories.performance.score +
+                      report.categories.accessibility.score +
+                      report.categories.bestPractices.score +
+                      report.categories.seo.score) /
+                      4,
+                  );
+                  const color = scoreToColor(avg);
+                  return (
+                    <>
+                      <span
+                        className="text-[10px] tracking-[0.2em] uppercase"
+                        style={{
+                          color: "var(--text-dim)",
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          opacity: 0.5,
+                        }}
+                      >
+                        Puntuación global
+                      </span>
+                      <div
+                        className="flex-1 h-px"
+                        style={{ backgroundColor: "var(--surface-high)" }}
+                      />
+                      <span
+                        className="text-2xl font-black"
+                        style={{
+                          color,
+                          fontFamily: "var(--font-space-grotesk), sans-serif",
+                          textShadow: `0 0 20px ${color}88`,
+                        }}
+                      >
+                        {avg}
+                      </span>
+                      <span
+                        className="text-[10px] tracking-[0.2em] uppercase font-bold"
+                        style={{
+                          color,
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                        }}
+                      >
+                        {scoreToLabel(avg)}
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </div>
 
-          {/* Detailed audits */}
-          <div
-            className="p-8"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderLeft: "2px solid var(--secondary)",
-            }}
-          >
-            <CategorySection category={report.categories.performance} />
-            <CategorySection category={report.categories.accessibility} />
-            <CategorySection category={report.categories.bestPractices} />
-            <CategorySection category={report.categories.seo} />
+          {/* Generate roadmap CTA */}
+          <div style={{ position: "relative" }}>
+            <Corners color="rgba(107,255,143,0.3)" />
+            <div
+              style={{
+                backgroundColor: "var(--surface)",
+                border: "1px solid var(--surface-high)",
+                borderLeft: "2px solid var(--primary)",
+              }}
+            >
+              {/* Card header */}
+              <div
+                className="flex items-center gap-3 px-6 py-3"
+                style={{
+                  borderBottom: "1px solid var(--surface-high)",
+                  backgroundColor: "var(--surface-high)",
+                  fontFamily: "var(--font-jetbrains-mono), monospace",
+                }}
+              >
+                <span
+                  style={{ color: "#0cce6b", opacity: 0.6, fontSize: "11px" }}
+                >
+                  {"//"}
+                </span>
+                <span
+                  className="text-[10px] tracking-[0.2em] uppercase"
+                  style={{ color: "var(--primary)" }}
+                >
+                  Siguiente paso
+                </span>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 flex flex-col gap-5">
+                <div>
+                  <div
+                    className="text-sm font-bold mb-1.5"
+                    style={{
+                      color: "var(--text)",
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                    }}
+                  >
+                    Genera un roadmap con IA
+                  </div>
+                  <div
+                    className="text-xs leading-relaxed"
+                    style={{
+                      color: "var(--text-dim)",
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                    }}
+                  >
+                    Convierte los errores de Lighthouse en un plan de acción
+                    priorizado para alcanzar 100 en las 4 categorías.
+                  </div>
+                </div>
+
+                <button
+                  className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono), monospace",
+                    backgroundColor: "var(--primary)",
+                    color: "var(--primary-on)",
+                    boxShadow:
+                      "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.filter = "brightness(0.88)")
+                  }
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
+                >
+                  <svg
+                    className="w-4 h-4 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                    />
+                  </svg>
+                  &gt; Generar roadmap
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
