@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   {
     id: "dashboard",
     href: "/",
-    label: "Dashboard",
+    label: "Análisis",
     icon: (
       <svg
         className="w-4 h-4 shrink-0"
@@ -46,7 +46,7 @@ const NAV_ITEMS = [
   {
     id: "analytics",
     href: "/analytics",
-    label: "Analíticas",
+    label: "Estadísticas",
     icon: (
       <svg
         className="w-4 h-4 shrink-0"
