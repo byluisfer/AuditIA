@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { execFile } from "node:child_process";
-import { resolve } from "node:path";
 
 export const maxDuration = 180;
 
@@ -75,7 +74,8 @@ async function runLighthouse(
   url: string,
   strategy: "desktop" | "mobile",
 ): Promise<Record<string, unknown>> {
-  const scriptPath = resolve(process.cwd(), "scripts/run-lighthouse.mjs");
+  const base = process.cwd();
+  const scriptPath = [base, "scripts", "run-lighthouse.mjs"].join("/");
 
   return new Promise((resolve, reject) => {
     execFile(
