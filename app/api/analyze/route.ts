@@ -1,186 +1,230 @@
 import { NextRequest } from "next/server";
-import { OpenRouter } from "@openrouter/sdk";
 import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 
 export const maxDuration = 180;
 
-const openrouter = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-function scoreEmoji(score: number) {
-  if (score >= 90) return "🟢";
-  if (score >= 50) return "🟠";
-  return "🔴";
-}
-
-function scoreLabel(score: number) {
-  if (score >= 90) return "PASS";
-  if (score >= 50) return "NEEDS IMPROVEMENT";
-  return "FAIL";
-}
-
-type Audit = {
-  score: number | null;
+// Types
+type LhrAudit = {
+  id: string;
   title: string;
-  description?: string;
+  description: string;
+  score: number | null;
+  scoreDisplayMode: string;
   displayValue?: string;
-  details?: { type: string };
+  numericValue?: number;
+  numericUnit?: string;
+  details?: {
+    type: string;
+    overallSavingsMs?: number;
+    overallSavingsBytes?: number;
+    items?: unknown[];
+  };
+  warnings?: string[];
+};
+type LhrCategory = {
+  title: string;
+  score: number;
+  auditRefs: { id: string; weight: number; group?: string }[];
+};
+export type AuditResult = {
+  id: string;
+  title: string;
+  description: string;
+  score: number | null;
+  displayValue?: string;
+  numericValue?: number;
+  savingsMs?: number;
+  savingsBytes?: number;
+  warnings?: string[];
+};
+export type CategoryReport = {
+  title: string;
+  score: number;
+  metrics: AuditResult[];
+  opportunities: AuditResult[];
+  diagnostics: AuditResult[];
+  passed: AuditResult[];
+};
+export type LighthouseReport = {
+  url: string;
+  strategy: string;
+  fetchTime: string;
+  lighthouseVersion: string;
+  categories: {
+    performance: CategoryReport;
+    accessibility: CategoryReport;
+    seo: CategoryReport;
+    bestPractices: CategoryReport;
+  };
 };
 
-type Category = { score: number; title: string };
+// Constants
+const PERFORMANCE_METRIC_IDS = [
+  "first-contentful-paint",
+  "largest-contentful-paint",
+  "total-blocking-time",
+  "cumulative-layout-shift",
+  "speed-index",
+  "interactive",
+];
+const PERFORMANCE_METRIC_ID_SET = new Set(PERFORMANCE_METRIC_IDS);
 
-async function runLighthouse(url: string, strategy: "desktop" | "mobile" = "desktop"): Promise<Record<string, unknown>> {
-  const script = resolve(process.cwd(), "scripts/run-lighthouse.mjs");
+// Lighthouse runner
+async function runLighthouse(
+  url: string,
+  strategy: "desktop" | "mobile",
+): Promise<Record<string, unknown>> {
+  const scriptPath = resolve(process.cwd(), "scripts/run-lighthouse.mjs");
 
-  return new Promise((resolvePromise, reject) => {
-    execFile("node", [script, url, strategy], { maxBuffer: 20 * 1024 * 1024, timeout: 120_000 }, (err, stdout, stderr) => {
-      if (err) {
-        reject(new Error(stderr || err.message));
-        return;
-      }
-      try {
-        resolvePromise(JSON.parse(stdout));
-      } catch {
-        reject(new Error(`Failed to parse Lighthouse output: ${stdout.slice(0, 200)}`));
-      }
-    });
+  return new Promise((resolve, reject) => {
+    execFile(
+      "node",
+      [scriptPath, url, strategy],
+      { maxBuffer: 20 * 1024 * 1024, timeout: 120_000 },
+      (err, stdout, stderr) => {
+        if (err) {
+          reject(new Error(stderr || err.message));
+          return;
+        }
+        try {
+          resolve(JSON.parse(stdout));
+        } catch {
+          reject(
+            new Error(
+              `Failed to parse Lighthouse output: ${stdout.slice(0, 300)}`,
+            ),
+          );
+        }
+      },
+    );
   });
 }
 
-function parseResults(url: string, lhr: Record<string, unknown>) {
-  const cats = (lhr.categories ?? {}) as Record<string, Category>;
-  const audits = (lhr.audits ?? {}) as Record<string, Audit>;
-
-  const scores = {
-    performance:   Math.round((cats.performance?.score   ?? 0) * 100),
-    accessibility: Math.round((cats.accessibility?.score ?? 0) * 100),
-    seo:           Math.round((cats.seo?.score           ?? 0) * 100),
-    bestPractices: Math.round((cats["best-practices"]?.score ?? 0) * 100),
+// Result shaping
+function toAuditResult(audit: LhrAudit): AuditResult {
+  return {
+    id: audit.id,
+    title: audit.title,
+    description: audit.description,
+    score: audit.score,
+    displayValue: audit.displayValue,
+    numericValue: audit.numericValue,
+    savingsMs: audit.details?.overallSavingsMs,
+    savingsBytes: audit.details?.overallSavingsBytes,
+    warnings: audit.warnings?.length ? audit.warnings : undefined,
   };
+}
+function buildCategoryReport(
+  category: LhrCategory,
+  audits: Record<string, LhrAudit>,
+  categoryKey: string,
+): CategoryReport {
+  const metrics: AuditResult[] = [];
+  const opportunities: AuditResult[] = [];
+  const diagnostics: AuditResult[] = [];
+  const passed: AuditResult[] = [];
 
-  const failed = Object.values(audits)
-    .filter((a) => a.score !== null && a.score < 1 && a.title)
-    .sort((a, b) => (a.score ?? 1) - (b.score ?? 1))
-    .slice(0, 20);
+  for (const ref of category.auditRefs) {
+    const audit = audits[ref.id];
+    if (!audit) continue;
 
-  const opportunities = Object.values(audits)
-    .filter((a) => a.details?.type === "opportunity" && a.score !== null && a.score < 1);
+    if (
+      audit.scoreDisplayMode === "notApplicable" ||
+      audit.scoreDisplayMode === "manual"
+    ) {
+      continue;
+    }
 
-  const header = [
-    ``,
-    `${"─".repeat(52)}`,
-    `  LIGHTHOUSE AUDIT  —  ${url}`,
-    `  Strategy: Desktop  |  Local Lighthouse (Chrome Headless)`,
-    `${"─".repeat(52)}`,
-    ``,
-    `  ${scoreEmoji(scores.performance)}  Performance    ${scores.performance}/100   ${scoreLabel(scores.performance)}`,
-    `  ${scoreEmoji(scores.accessibility)}  Accessibility  ${scores.accessibility}/100   ${scoreLabel(scores.accessibility)}`,
-    `  ${scoreEmoji(scores.seo)}  SEO            ${scores.seo}/100   ${scoreLabel(scores.seo)}`,
-    `  ${scoreEmoji(scores.bestPractices)}  Best Practices ${scores.bestPractices}/100   ${scoreLabel(scores.bestPractices)}`,
-    ``,
-    `${"─".repeat(52)}`,
-    `  AI ANALYSIS`,
-    `${"─".repeat(52)}`,
-    ``,
-  ].join("\n");
+    const auditResult = toAuditResult(audit);
 
-  const failedList = failed
-    .map((a) => `• [${Math.round((a.score ?? 0) * 100)}] ${a.title}${a.displayValue ? ` → ${a.displayValue}` : ""}`)
-    .join("\n");
+    // Performance metrics go in their own section, not Opportunities/Diagnostics
+    if (
+      categoryKey === "performance" &&
+      PERFORMANCE_METRIC_ID_SET.has(audit.id)
+    ) {
+      metrics.push(auditResult);
+      continue;
+    }
 
-  const oppList = opportunities
-    .map((a) => `• ${a.title}${a.displayValue ? ` (${a.displayValue})` : ""}`)
-    .join("\n");
+    if (audit.score === null || audit.score === 1) {
+      passed.push(auditResult);
+    } else if (audit.details?.type === "opportunity") {
+      opportunities.push(auditResult);
+    } else {
+      diagnostics.push(auditResult);
+    }
+  }
 
-  const aiContext = `
-URL: ${url}
-Scores (already displayed to user — DO NOT repeat them as a list again):
-  Performance ${scores.performance}/100, Accessibility ${scores.accessibility}/100, SEO ${scores.seo}/100, Best Practices ${scores.bestPractices}/100
+  // Highest savings first — most impactful opportunities at the top
+  opportunities.sort((a, b) => (b.savingsMs ?? 0) - (a.savingsMs ?? 0));
 
-Failed audits:
-${failedList || "None"}
+  // Lowest score first — worst failures at the top
+  diagnostics.sort((a, b) => (a.score ?? 1) - (b.score ?? 1));
 
-Performance opportunities:
-${oppList || "None"}
-`.trim();
+  // Preserve the official metric display order
+  metrics.sort(
+    (a, b) =>
+      PERFORMANCE_METRIC_IDS.indexOf(a.id) -
+      PERFORMANCE_METRIC_IDS.indexOf(b.id),
+  );
 
-  return { header, scores, aiContext };
+  return {
+    title: category.title,
+    score: Math.round(category.score * 100),
+    metrics,
+    opportunities,
+    diagnostics,
+    passed,
+  };
 }
 
-const SYSTEM_PROMPT = `You are AuditIA, a web performance analyst.
-
-The scores have ALREADY been shown to the user — do NOT repeat them as a list.
-
-Your job: write a clear, honest analysis organized in four sections:
-1. Performance — explain the failing audits and opportunities, what causes them, how to fix them
-2. Accessibility — list each issue with a concrete fix
-3. SEO — list each issue with a concrete fix
-4. Best Practices — list each issue with a concrete fix
-
-Rules:
-- Be direct and honest. If a score is bad, say it is bad.
-- Give specific, actionable fixes with code examples where useful.
-- Skip sections with no issues (just write "No issues found" for that section).
-- Use technical language suited for developers.
-- Do NOT invent issues not present in the data.`;
-
+// Route handler
 export async function POST(req: NextRequest) {
-  const { url: rawUrl, strategy = "desktop" } = await req.json();
+  const { url: rawUrl, strategy = "mobile" } = await req.json();
 
-  if (!rawUrl) {
-    return new Response("Missing URL", { status: 400 });
-  }
-  if (!process.env.OPENROUTER_API_KEY) {
-    return new Response("OPENROUTER_API_KEY is not set", { status: 500 });
-  }
+  if (!rawUrl) return new Response("Missing URL", { status: 400 });
 
+  // Prepend https:// if the user omitted the protocol
   const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
 
-  let header: string;
-  let aiContext: string;
-
+  let lhr: Record<string, unknown>;
   try {
-    const lhr = await runLighthouse(url, strategy);
-    ({ header, aiContext } = parseResults(url, lhr));
+    lhr = await runLighthouse(url, strategy as "desktop" | "mobile");
   } catch (err) {
     return new Response(
       `ERROR_LIGHTHOUSE: ${err instanceof Error ? err.message : "Failed to run Lighthouse"}`,
-      { status: 502 }
+      { status: 502 },
     );
   }
 
-  const aiStream = await openrouter.chat.send({
-    chatGenerationParams: {
-      model: "openrouter/auto",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: aiContext },
-      ],
-      stream: true,
+  const rawCategories = (lhr.categories ?? {}) as Record<string, LhrCategory>;
+  const rawAudits = (lhr.audits ?? {}) as Record<string, LhrAudit>;
+
+  const report: LighthouseReport = {
+    url,
+    strategy,
+    fetchTime: lhr.fetchTime as string,
+    lighthouseVersion: lhr.lighthouseVersion as string,
+    categories: {
+      performance: buildCategoryReport(
+        rawCategories.performance,
+        rawAudits,
+        "performance",
+      ),
+      accessibility: buildCategoryReport(
+        rawCategories.accessibility,
+        rawAudits,
+        "accessibility",
+      ),
+      seo: buildCategoryReport(rawCategories.seo, rawAudits, "seo"),
+      bestPractices: buildCategoryReport(
+        rawCategories["best-practices"],
+        rawAudits,
+        "best-practices",
+      ),
     },
-  });
+  };
 
-  const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      // 1. Stream the scores header directly — guaranteed to match Lighthouse
-      controller.enqueue(encoder.encode(header));
-
-      // 2. Stream AI narrative after
-      try {
-        for await (const chunk of aiStream) {
-          const content = chunk.choices[0]?.delta?.content;
-          if (content) controller.enqueue(encoder.encode(content));
-        }
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+  return Response.json(report);
 }

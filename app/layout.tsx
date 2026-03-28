@@ -19,15 +19,14 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "AuditIA - Tu AI Product Manager",
-  description: "AuditIA analiza automáticamente tu web para optimizar UX, Performance, Accesibilidad y SEO con un roadmap visual priorizado.",
+  description:
+    "AuditIA analiza automáticamente tu web para optimizar UX, Performance, Accesibilidad y SEO con un roadmap visual priorizado.",
   keywords: ["UX", "Performance", "SEO", "Accesibilidad", "AI Product Manager"],
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="es"

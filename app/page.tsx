@@ -8,7 +8,10 @@ export default function Home() {
   return (
     <div
       className="min-h-screen"
-      style={{ backgroundColor: "var(--bg)", fontFamily: "var(--font-jetbrains-mono), monospace" }}
+      style={{
+        backgroundColor: "var(--bg)",
+        fontFamily: "var(--font-jetbrains-mono), monospace",
+      }}
     >
       <Scanlines />
       <Vignette />
