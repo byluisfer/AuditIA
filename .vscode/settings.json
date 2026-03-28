@@ -1,0 +1,14 @@
+{
+  // Prevent VS Code's TypeScript language server from scanning node_modules.
+  // Without this, lighthouse's tsconfig.json (which references test files not
+  // shipped in the npm package) causes spurious "file not found" TS errors.
+  "typescript.tsserver.watchOptions": {
+    "excludeDirectories": ["**/node_modules"]
+  },
+  "search.exclude": {
+    "**/node_modules": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true
+  }
+}
