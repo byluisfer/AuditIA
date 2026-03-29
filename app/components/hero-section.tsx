@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { UrlInput } from "./url-input";
 import type { LighthouseReport } from "../api/analyze/route";
 import { scoreToColor, scoreToLabel } from "../lib/score-utils";
-import { saveRoadmap } from "../lib/storage";
+import { findRoadmapByUrl, saveRoadmap } from "../lib/storage";
 import type { Roadmap } from "../types/roadmap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -851,10 +851,21 @@ export function HeroSection() {
     "idle" | "loading" | "done" | "error"
   >("idle");
   const [roadmapError, setRoadmapError] = useState("");
+  const [existingRoadmapId, setExistingRoadmapId] = useState<string | null>(
+    null,
+  );
   const router = useRouter();
 
   async function handleGenerateRoadmap() {
     if (!report) return;
+
+    const existing = findRoadmapByUrl(report.url);
+    if (existing) {
+      setExistingRoadmapId(existing.id);
+      router.push("/logs");
+      return;
+    }
+
     setRoadmapStatus("loading");
     setRoadmapError("");
     setViewState("roadmap-loading");
@@ -892,7 +903,8 @@ export function HeroSection() {
         categories,
       };
 
-      saveRoadmap(roadmap);
+      const roadmapId = saveRoadmap(roadmap);
+      setExistingRoadmapId(roadmapId);
       setRoadmapStatus("done");
       setTimeout(() => router.push("/logs"), 1800);
     } catch (err) {
@@ -925,7 +937,13 @@ export function HeroSection() {
         return;
       }
 
-      setReport(data as LighthouseReport);
+      const parsedReport = data as LighthouseReport;
+      const existing = findRoadmapByUrl(parsedReport.url);
+
+      setReport(parsedReport);
+      setExistingRoadmapId(existing?.id ?? null);
+      setRoadmapStatus("idle");
+      setRoadmapError("");
       setApiStatus("done");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error desconocido");
@@ -947,6 +965,9 @@ export function HeroSection() {
     setReport(null);
     setApiStatus("idle");
     setErrorMessage("");
+    setRoadmapStatus("idle");
+    setRoadmapError("");
+    setExistingRoadmapId(null);
     setUrl("");
   }
 
@@ -1322,7 +1343,9 @@ export function HeroSection() {
                       fontFamily: "var(--font-jetbrains-mono), monospace",
                     }}
                   >
-                    Genera un roadmap con IA
+                    {existingRoadmapId
+                      ? "Roadmap existente encontrado"
+                      : "Genera un roadmap con IA"}
                   </div>
                   <div
                     className="text-xs leading-relaxed"
@@ -1331,66 +1354,86 @@ export function HeroSection() {
                       fontFamily: "var(--font-jetbrains-mono), monospace",
                     }}
                   >
-                    Convierte los errores de Lighthouse en un plan de acción
-                    priorizado para alcanzar 100 en las 4 categorías.
+                    {existingRoadmapId
+                      ? "Este sitio ya tiene un roadmap guardado. Puedes abrirlo directamente para continuar donde te quedaste."
+                      : "Convierte los errores de Lighthouse en un plan de acción priorizado para alcanzar 100 en las 4 categorías."}
                   </div>
                 </div>
 
-                <button
-                  className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
-                  style={{
-                    fontFamily: "var(--font-jetbrains-mono), monospace",
-                    backgroundColor:
-                      roadmapStatus === "loading"
-                        ? "var(--surface-high)"
-                        : "var(--primary)",
-                    color:
-                      roadmapStatus === "loading"
-                        ? "var(--primary)"
-                        : "var(--primary-on)",
-                    boxShadow:
-                      roadmapStatus === "loading"
-                        ? "none"
-                        : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
-                  }}
-                  disabled={roadmapStatus === "loading"}
-                  onClick={handleGenerateRoadmap}
-                  onMouseEnter={(e) => {
-                    if (roadmapStatus !== "loading")
-                      e.currentTarget.style.filter = "brightness(0.88)";
-                  }}
-                  onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
-                >
-                  {roadmapStatus === "loading" ? (
-                    <>
-                      <span className="terminal-pulse">&gt;</span>
-                      Generando roadmap...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="w-4 h-4 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-                        />
-                      </svg>
-                      &gt; Generar roadmap
-                    </>
-                  )}
-                </button>
+                {existingRoadmapId ? (
+                  <button
+                    className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      backgroundColor: "var(--surface-high)",
+                      color: "var(--primary)",
+                      border: "1px solid var(--primary)",
+                    }}
+                    onClick={() => router.push("/logs")}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.filter = "brightness(0.92)";
+                    }}
+                    onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
+                  >
+                    &gt; Ver roadmap existente
+                  </button>
+                ) : (
+                  <button
+                    className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      backgroundColor:
+                        roadmapStatus === "loading"
+                          ? "var(--surface-high)"
+                          : "var(--primary)",
+                      color:
+                        roadmapStatus === "loading"
+                          ? "var(--primary)"
+                          : "var(--primary-on)",
+                      boxShadow:
+                        roadmapStatus === "loading"
+                          ? "none"
+                          : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
+                    }}
+                    disabled={roadmapStatus === "loading"}
+                    onClick={handleGenerateRoadmap}
+                    onMouseEnter={(e) => {
+                      if (roadmapStatus !== "loading")
+                        e.currentTarget.style.filter = "brightness(0.88)";
+                    }}
+                    onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
+                  >
+                    {roadmapStatus === "loading" ? (
+                      <>
+                        <span className="terminal-pulse">&gt;</span>
+                        Generando roadmap...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-4 h-4 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                          />
+                        </svg>
+                        &gt; Generar roadmap
+                      </>
+                    )}
+                  </button>
+                )}
                 {roadmapError && (
                   <div
                     className="text-xs mt-3 px-3 py-2"
