@@ -1,25 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { UrlInput } from "./url-input";
 import type { LighthouseReport } from "../api/analyze/route";
+import { scoreToColor, scoreToLabel } from "../lib/score-utils";
+import { saveRoadmap } from "../lib/storage";
+import type { Roadmap } from "../types/roadmap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ApiStatus = "idle" | "loading" | "done" | "error";
 type Strategy = "mobile" | "desktop";
 type ViewState = "form" | "terminal" | "results";
-
-// ── Score helpers ─────────────────────────────────────────────────────────────
-function scoreToColor(score: number | null): string {
-  if (score === null) return "var(--text-dim)";
-  if (score >= 90) return "#0cce6b";
-  if (score >= 50) return "#ffa400";
-  return "#ff4e42";
-}
-function scoreToLabel(score: number): string {
-  if (score >= 90) return "ÓPTIMO";
-  if (score >= 50) return "REGULAR";
-  return "CRÍTICO";
-}
 
 // ── HUD corner marks ──────────────────────────────────────────────────────────
 function Corners({ color = "var(--primary)" }: { color?: string }) {
@@ -548,6 +539,57 @@ export function HeroSection() {
   const [report, setReport] = useState<LighthouseReport | null>(null);
   const [viewState, setViewState] = useState<ViewState>("form");
   const [analysisUrl, setAnalysisUrl] = useState("");
+  const [roadmapStatus, setRoadmapStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [roadmapError, setRoadmapError] = useState("");
+  const router = useRouter();
+
+  async function handleGenerateRoadmap() {
+    if (!report) return;
+    setRoadmapStatus("loading");
+    setRoadmapError("");
+
+    try {
+      const res = await fetch("/api/roadmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(report),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setRoadmapError(data?.error ?? "Error desconocido");
+        setRoadmapStatus("error");
+        return;
+      }
+
+      const categories = data.categories.map(
+        (cat: { steps: Array<Record<string, unknown>> }) => ({
+          ...cat,
+          steps: cat.steps.map((step: Record<string, unknown>) => ({
+            ...step,
+            checked: false,
+          })),
+        }),
+      );
+
+      const roadmap: Roadmap = {
+        id: crypto.randomUUID(),
+        url: report.url,
+        strategy: report.strategy,
+        createdAt: new Date().toISOString(),
+        summary: data.summary,
+        categories,
+      };
+
+      saveRoadmap(roadmap);
+      router.push("/logs");
+    } catch (err) {
+      setRoadmapError(err instanceof Error ? err.message : "Error desconocido");
+      setRoadmapStatus("error");
+    }
+  }
 
   async function handleAnalyze() {
     const trimmed = url.trim();
@@ -979,37 +1021,70 @@ export function HeroSection() {
                   className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
                   style={{
                     fontFamily: "var(--font-jetbrains-mono), monospace",
-                    backgroundColor: "var(--primary)",
-                    color: "var(--primary-on)",
+                    backgroundColor:
+                      roadmapStatus === "loading"
+                        ? "var(--surface-high)"
+                        : "var(--primary)",
+                    color:
+                      roadmapStatus === "loading"
+                        ? "var(--primary)"
+                        : "var(--primary-on)",
                     boxShadow:
-                      "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
+                      roadmapStatus === "loading"
+                        ? "none"
+                        : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
                   }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.filter = "brightness(0.88)")
-                  }
+                  disabled={roadmapStatus === "loading"}
+                  onClick={handleGenerateRoadmap}
+                  onMouseEnter={(e) => {
+                    if (roadmapStatus !== "loading")
+                      e.currentTarget.style.filter = "brightness(0.88)";
+                  }}
                   onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
                 >
-                  <svg
-                    className="w-4 h-4 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-                    />
-                  </svg>
-                  &gt; Generar roadmap
+                  {roadmapStatus === "loading" ? (
+                    <>
+                      <span className="terminal-pulse">&gt;</span>
+                      Generando roadmap...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-4 h-4 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                        />
+                      </svg>
+                      &gt; Generar roadmap
+                    </>
+                  )}
                 </button>
+                {roadmapError && (
+                  <div
+                    className="text-xs mt-3 px-3 py-2"
+                    style={{
+                      color: "#ff4e42",
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      backgroundColor: "rgba(255,78,66,0.08)",
+                      border: "1px solid rgba(255,78,66,0.2)",
+                    }}
+                  >
+                    Error: {roadmapError}
+                  </div>
+                )}
               </div>
             </div>
           </div>
