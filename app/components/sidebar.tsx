@@ -29,9 +29,9 @@ const NAV_ITEMS = [
     ),
   },
   {
-    id: "logs",
-    href: "/logs",
-    label: "Registros",
+    id: "roadmaps",
+    href: "/roadmaps",
+    label: "Roadmaps",
     icon: (
       <svg
         className="w-4 h-4 shrink-0"

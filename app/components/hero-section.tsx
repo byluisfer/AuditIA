@@ -862,7 +862,7 @@ export function HeroSection() {
     const existing = findRoadmapByUrl(report.url);
     if (existing) {
       setExistingRoadmapId(existing.id);
-      router.push("/logs");
+      router.push("/roadmaps");
       return;
     }
 
@@ -906,7 +906,7 @@ export function HeroSection() {
       const roadmapId = saveRoadmap(roadmap);
       setExistingRoadmapId(roadmapId);
       setRoadmapStatus("done");
-      setTimeout(() => router.push("/logs"), 1800);
+      setTimeout(() => router.push("/roadmaps"), 1800);
     } catch (err) {
       setRoadmapError(err instanceof Error ? err.message : "Error desconocido");
       setRoadmapStatus("error");
@@ -1369,7 +1369,7 @@ export function HeroSection() {
                       color: "var(--primary)",
                       border: "1px solid var(--primary)",
                     }}
-                    onClick={() => router.push("/logs")}
+                    onClick={() => router.push("/roadmaps")}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.filter = "brightness(0.92)";
                     }}
