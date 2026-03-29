@@ -10,7 +10,7 @@ import type { Roadmap } from "../types/roadmap";
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ApiStatus = "idle" | "loading" | "done" | "error";
 type Strategy = "mobile" | "desktop";
-type ViewState = "form" | "terminal" | "results";
+type ViewState = "form" | "terminal" | "results" | "roadmap-loading";
 
 // ── HUD corner marks ──────────────────────────────────────────────────────────
 function Corners({ color = "var(--primary)" }: { color?: string }) {
@@ -466,6 +466,314 @@ function TerminalLoader({
   );
 }
 
+// ── Roadmap Loader ───────────────────────────────────────────────────────────
+const ROADMAP_LINES: TLine[] = [
+  { text: "Iniciando generación de roadmap...", type: "dim" },
+  { text: "Conectando con motor de IA...", type: "highlight" },
+  { text: "Enviando informe Lighthouse al modelo...", type: "default" },
+  { text: "Analizando oportunidades de rendimiento...", type: "default" },
+  { text: "Evaluando accesibilidad y SEO...", type: "default" },
+  { text: "Priorizando acciones por impacto...", type: "default" },
+  { text: "Generando pasos y soluciones...", type: "default" },
+  { text: "Construyendo checklist de mejoras...", type: "default" },
+];
+
+const ROADMAP_TIMINGS = [300, 1200, 2500, 5000, 8000, 12000, 16000, 20000];
+const ROADMAP_STAMPS = ROADMAP_TIMINGS.map((ms) => {
+  const s = ms / 1000;
+  return s < 10 ? `+${s.toFixed(1)}s` : `+${Math.round(s)}s`;
+});
+
+function RoadmapLoader({
+  url,
+  status,
+  errorMsg,
+}: {
+  url: string;
+  status: "loading" | "error" | "done";
+  errorMsg: string;
+}) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [finalLine, setFinalLine] = useState<TLine | null>(null);
+
+  let domain = url;
+  try {
+    domain = new URL(url).hostname;
+  } catch {
+    /* keep raw */
+  }
+
+  useEffect(() => {
+    const timers = ROADMAP_LINES.map((_, i) =>
+      setTimeout(() => setVisibleCount(i + 1), ROADMAP_TIMINGS[i]),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  useEffect(() => {
+    if (status === "loading") return;
+
+    setVisibleCount(ROADMAP_LINES.length);
+
+    const fl: TLine =
+      status === "error"
+        ? { text: `Error: ${errorMsg}`, type: "error" }
+        : {
+            text: "Roadmap generado con éxito. Redirigiendo...",
+            type: "success",
+          };
+
+    const t = setTimeout(() => setFinalLine(fl), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  const displayLines = [
+    ...ROADMAP_LINES.slice(0, visibleCount),
+    ...(finalLine ? [finalLine] : []),
+  ];
+  const isRunning = status === "loading";
+
+  return (
+    <div
+      className="w-full max-w-3xl results-fade-in"
+      style={{ position: "relative" }}
+    >
+      <Corners />
+
+      <div
+        style={{
+          backgroundColor: "var(--surface)",
+          border: "1px solid var(--primary)",
+          boxShadow:
+            "0 0 0 1px rgba(107,255,143,0.08)," +
+            "0 0 80px rgba(107,255,143,0.05)," +
+            "0 16px 48px rgba(0,0,0,0.4)",
+        }}
+      >
+        {/* Title bar */}
+        <div
+          className="flex items-center gap-4 px-5 py-3"
+          style={{
+            borderBottom: "1px solid var(--surface-high)",
+            backgroundColor: "var(--surface-high)",
+          }}
+        >
+          <div className="flex gap-1.5 shrink-0">
+            {(["#ff5f57", "#febc2e", "#28c840"] as const).map((c, i) => (
+              <span
+                key={i}
+                style={{
+                  display: "inline-block",
+                  width: 11,
+                  height: 11,
+                  borderRadius: "50%",
+                  backgroundColor: c,
+                }}
+              />
+            ))}
+          </div>
+
+          <span
+            className="flex-1 text-center text-xs tracking-[0.25em] uppercase"
+            style={{
+              color: "var(--text-dim)",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+            }}
+          >
+            AUDITIA · GENERADOR DE ROADMAP
+          </span>
+
+          <span
+            className={isRunning ? "terminal-pulse" : ""}
+            style={{
+              display: "inline-block",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: "9px",
+              letterSpacing: "0.14em",
+              padding: "2px 7px",
+              border: `1px solid ${isRunning ? "var(--primary)" : status === "error" ? "#ff4e42" : "#0cce6b"}`,
+              color: isRunning
+                ? "var(--primary)"
+                : status === "error"
+                  ? "#ff4e42"
+                  : "#0cce6b",
+            }}
+          >
+            {isRunning ? "PROCESANDO" : status === "error" ? "ERROR" : "LISTO"}
+          </span>
+        </div>
+
+        {/* Terminal body */}
+        <div
+          className="relative overflow-hidden"
+          style={{
+            padding: "2rem 2.25rem",
+            minHeight: "18rem",
+            fontFamily: "var(--font-jetbrains-mono), monospace",
+          }}
+        >
+          {/* Scanlines */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(to bottom, transparent, transparent 3px, var(--scanline-color) 3px, var(--scanline-color) 4px)",
+              zIndex: 1,
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(107,255,143,0.04) 0%, transparent 70%)",
+              zIndex: 1,
+            }}
+          />
+
+          <div className="relative" style={{ zIndex: 2 }}>
+            {/* Shell prompt */}
+            <div
+              className="mb-6 pb-5"
+              style={{ borderBottom: "1px solid var(--surface-high)" }}
+            >
+              <div
+                className="text-xs mb-3"
+                style={{ color: "var(--text-dim)", letterSpacing: "0.05em" }}
+              >
+                AUDITIA v1.0.0{"  "}·{"  "}Roadmap IA{"  "}·{"  "}OpenRouter
+              </div>
+              <div
+                className="text-xs flex flex-wrap items-baseline gap-1"
+                style={{ lineHeight: 1.7 }}
+              >
+                <span style={{ color: "#0cce6b" }}>root@auditia</span>
+                <span style={{ color: "var(--text-dim)" }}>:~#</span>
+                <span style={{ color: "var(--text)", marginLeft: "0.25rem" }}>
+                  auditia roadmap --generate --url={url}
+                </span>
+              </div>
+            </div>
+
+            {/* Output lines */}
+            <div className="flex flex-col gap-2.5">
+              {displayLines.map((line, i) => {
+                const isLast = i === displayLines.length - 1;
+                const hasStamp = i < ROADMAP_LINES.length;
+                const isFinalLine =
+                  finalLine !== null && i === displayLines.length - 1;
+                const stamp = hasStamp ? ROADMAP_STAMPS[i] : null;
+
+                return (
+                  <div
+                    key={i}
+                    className="terminal-line-in flex items-baseline gap-0"
+                    style={{ fontSize: "0.8125rem" }}
+                  >
+                    <span
+                      style={{
+                        color: "var(--text-dim)",
+                        opacity: 0.5,
+                        minWidth: "4rem",
+                        fontSize: "0.7rem",
+                        letterSpacing: "0.03em",
+                        flexShrink: 0,
+                        paddingRight: "0.75rem",
+                      }}
+                    >
+                      {stamp ?? ""}
+                    </span>
+
+                    <span
+                      style={{
+                        color: "var(--text-dim)",
+                        marginRight: "0.5rem",
+                        flexShrink: 0,
+                        opacity: 0.6,
+                      }}
+                    >
+                      {isFinalLine ? (line.type === "error" ? "✗" : "✓") : "›"}
+                    </span>
+
+                    <span
+                      style={{
+                        color: tLineColor(line.type),
+                        textShadow: tLineGlow(line.type),
+                        flex: 1,
+                      }}
+                    >
+                      {line.text}
+                      {isLast && !finalLine && (
+                        <span
+                          className="cursor-blink inline-block ml-1.5 translate-y-[0.1em]"
+                          style={{
+                            width: "0.5em",
+                            height: "0.88em",
+                            backgroundColor: tLineColor(line.type),
+                            display: "inline-block",
+                          }}
+                        />
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Status bar */}
+        <div
+          className="flex items-center justify-between px-5 py-2.5"
+          style={{
+            borderTop: "1px solid var(--surface-high)",
+            backgroundColor: "var(--surface-high)",
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <span
+              style={{
+                color: "var(--text-dim)",
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: "10px",
+                letterSpacing: "0.1em",
+              }}
+            >
+              {status === "error"
+                ? "ESTADO: ERROR"
+                : isRunning
+                  ? "ESTADO: GENERANDO"
+                  : "ESTADO: COMPLETO"}
+            </span>
+            {isRunning && (
+              <span
+                style={{
+                  color: "var(--text-dim)",
+                  fontFamily: "var(--font-jetbrains-mono), monospace",
+                  fontSize: "10px",
+                  opacity: 0.5,
+                }}
+              >
+                Esperando respuesta del modelo...
+              </span>
+            )}
+          </div>
+          <span
+            style={{
+              color: "var(--text-dim)",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: "10px",
+              opacity: 0.6,
+            }}
+          >
+            {domain}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Score Gauge ───────────────────────────────────────────────────────────────
 function ScoreGauge({ score, label }: { score: number; label: string }) {
   const color = scoreToColor(score);
@@ -540,7 +848,7 @@ export function HeroSection() {
   const [viewState, setViewState] = useState<ViewState>("form");
   const [analysisUrl, setAnalysisUrl] = useState("");
   const [roadmapStatus, setRoadmapStatus] = useState<
-    "idle" | "loading" | "error"
+    "idle" | "loading" | "done" | "error"
   >("idle");
   const [roadmapError, setRoadmapError] = useState("");
   const router = useRouter();
@@ -549,6 +857,7 @@ export function HeroSection() {
     if (!report) return;
     setRoadmapStatus("loading");
     setRoadmapError("");
+    setViewState("roadmap-loading");
 
     try {
       const res = await fetch("/api/roadmap", {
@@ -584,7 +893,8 @@ export function HeroSection() {
       };
 
       saveRoadmap(roadmap);
-      router.push("/logs");
+      setRoadmapStatus("done");
+      setTimeout(() => router.push("/logs"), 1800);
     } catch (err) {
       setRoadmapError(err instanceof Error ? err.message : "Error desconocido");
       setRoadmapStatus("error");
@@ -777,6 +1087,15 @@ export function HeroSection() {
           apiStatus={apiStatus}
           errorMsg={errorMessage}
           onTransitionDone={handleTransitionDone}
+        />
+      )}
+
+      {/* ── ROADMAP LOADING VIEW ─────────────────────────────────────────── */}
+      {viewState === "roadmap-loading" && report && (
+        <RoadmapLoader
+          url={report.url}
+          status={roadmapStatus as "loading" | "done" | "error"}
+          errorMsg={roadmapError}
         />
       )}
 
