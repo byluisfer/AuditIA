@@ -2,6 +2,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSidebarInitialCollapsed } from "./sidebar-preference-provider";
+
+const SIDEBAR_KEY = "sidebar-collapsed";
+const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function subscribeStorage(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -74,10 +78,16 @@ const EXPANDED_W = "15rem";
 const COLLAPSED_W = "3.5rem";
 
 export function Sidebar() {
+  const initialCollapsed = useSidebarInitialCollapsed();
+
   const collapsed = useSyncExternalStore(
     subscribeStorage,
-    () => localStorage.getItem("sidebar-collapsed") === "true",
-    () => false,
+    () => {
+      const raw = localStorage.getItem(SIDEBAR_KEY);
+      if (raw === null) return initialCollapsed;
+      return raw === "true";
+    },
+    () => initialCollapsed,
   );
   const pathname = usePathname();
 
@@ -91,7 +101,8 @@ export function Sidebar() {
 
   function toggle() {
     const next = !collapsed;
-    localStorage.setItem("sidebar-collapsed", String(next));
+    localStorage.setItem(SIDEBAR_KEY, String(next));
+    document.cookie = `sidebar-collapsed=${String(next)}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; samesite=lax`;
     window.dispatchEvent(new StorageEvent("storage"));
   }
 

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { cookies } from "next/headers";
+import { SidebarPreferenceProvider } from "./components/sidebar-preference-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,15 +26,26 @@ export const metadata: Metadata = {
   keywords: ["UX", "Performance", "SEO", "Accesibilidad", "AI Product Manager"],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies();
+  const initialCollapsed =
+    cookieStore.get("sidebar-collapsed")?.value === "true";
+
   return (
     <html
       lang="es"
       className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} h-full antialiased`}
+      style={{
+        ["--sidebar-w" as string]: initialCollapsed ? "3.5rem" : "15rem",
+      }}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SidebarPreferenceProvider initialCollapsed={initialCollapsed}>
+          {children}
+        </SidebarPreferenceProvider>
+      </body>
     </html>
   );
 }
