@@ -22,6 +22,18 @@ const PRIORITY_COLORS: Record<string, string> = {
   alta: "#ff4e42",
   media: "#ffa400",
   baja: "#0cce6b",
+  high: "#ff4e42",
+  medium: "#ffa400",
+  low: "#0cce6b",
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  alta: "Alta",
+  media: "Media",
+  baja: "Baja",
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
 };
 
 // ── localStorage sync ────────────────────────────────────────────────────────
@@ -296,7 +308,7 @@ function CategorySection({
                             border: `1px solid ${priorityColor}30`,
                           }}
                         >
-                          {step.priority}
+                          {PRIORITY_LABELS[step.priority] ?? step.priority}
                         </span>
                       </button>
                       <div
@@ -344,11 +356,12 @@ function CategorySection({
 function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const totalSteps = roadmap.categories.reduce(
+  const activeCategories = roadmap.categories.filter((c) => c.steps.length > 0);
+  const totalSteps = activeCategories.reduce(
     (sum, c) => sum + c.steps.length,
     0,
   );
-  const checkedSteps = roadmap.categories.reduce(
+  const checkedSteps = activeCategories.reduce(
     (sum, c) => sum + c.steps.filter((s) => s.checked).length,
     0,
   );
@@ -472,15 +485,17 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
           </p>
         </div>
 
-        {/* Categories */}
+        {/* Categories — only show those with actual steps */}
         <div className="px-6 pb-6 flex flex-col gap-3">
-          {roadmap.categories.map((cat) => (
-            <CategorySection
-              key={cat.category}
-              cat={cat}
-              roadmapId={roadmap.id}
-            />
-          ))}
+          {roadmap.categories
+            .filter((cat) => cat.steps.length > 0)
+            .map((cat) => (
+              <CategorySection
+                key={cat.category}
+                cat={cat}
+                roadmapId={roadmap.id}
+              />
+            ))}
         </div>
       </div>
     </div>

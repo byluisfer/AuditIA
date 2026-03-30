@@ -2,7 +2,7 @@ import type { LighthouseReport, CategoryReport } from "../analyze/route";
 
 export const maxDuration = 60;
 
-// Models
+// Models — tried in parallel, first valid response wins
 const FREE_MODELS = [
   "openrouter/free",
   "stepfun/step-3.5-flash:free",
@@ -11,91 +11,124 @@ const FREE_MODELS = [
   "nvidia/nemotron-3-nano-30b-a3b:free",
 ];
 
-const MODEL_TIMEOUT_MS = 25_000;
+const MODEL_TIMEOUT_MS = 30_000;
 
 // ── Report condensation ──────────────────────────────────────────────────────
 function condenseCategoryReport(cat: CategoryReport) {
+  const failingOpportunities = cat.opportunities.map((a) => ({
+    title: a.title,
+    description: a.description,
+    displayValue: a.displayValue,
+    savingsMs: a.savingsMs,
+    savingsBytes: a.savingsBytes,
+  }));
+
+  const failingDiagnostics = cat.diagnostics
+    .filter((a) => a.score !== null && a.score < 1)
+    .map((a) => ({
+      title: a.title,
+      description: a.description,
+      displayValue: a.displayValue,
+      score: a.score,
+    }));
+
   return {
     title: cat.title,
     score: cat.score,
-    opportunities: cat.opportunities.map((a) => ({
-      title: a.title,
-      displayValue: a.displayValue,
-      savingsMs: a.savingsMs,
-      savingsBytes: a.savingsBytes,
-    })),
-    diagnostics: cat.diagnostics
-      .filter((a) => a.score !== null && a.score < 1)
-      .map((a) => ({
-        title: a.title,
-        displayValue: a.displayValue,
-        score: a.score,
-      })),
     metrics: cat.metrics?.map((m) => ({
       title: m.title,
       displayValue: m.displayValue,
       score: m.score,
     })),
+    // Only real failing items — AI builds one step per item
+    failingItems: [...failingOpportunities, ...failingDiagnostics],
   };
 }
 
+type CondensedCategory = ReturnType<typeof condenseCategoryReport> & {
+  categoryKey: string;
+};
+
 function condenseReport(report: LighthouseReport) {
   const { performance, accessibility, seo, bestPractices } = report.categories;
+
+  const all: CondensedCategory[] = [
+    { ...condenseCategoryReport(performance), categoryKey: "performance" },
+    { ...condenseCategoryReport(accessibility), categoryKey: "accessibility" },
+    { ...condenseCategoryReport(seo), categoryKey: "seo" },
+    { ...condenseCategoryReport(bestPractices), categoryKey: "bestPractices" },
+  ];
+
+  // Only send categories with actual issues to the AI
+  const withIssues = all.filter((c) => c.failingItems.length > 0);
+
   return {
     url: report.url,
     strategy: report.strategy,
-    categories: {
-      performance: condenseCategoryReport(performance),
-      accessibility: condenseCategoryReport(accessibility),
-      seo: condenseCategoryReport(seo),
-      bestPractices: condenseCategoryReport(bestPractices),
+    // Pass scores for all categories so AI can reference them in the summary
+    scores: {
+      performance: performance.score,
+      accessibility: accessibility.score,
+      seo: seo.score,
+      bestPractices: bestPractices.score,
     },
+    categories: withIssues,
   };
 }
 
 // ── AI prompt ────────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `Eres un consultor experto en rendimiento web, accesibilidad, SEO y buenas prácticas. Analiza el informe Lighthouse proporcionado y genera un roadmap estructurado en JSON para llevar cada categoría a 100/100.
+const SYSTEM_PROMPT = `Eres un experto en rendimiento web, accesibilidad, SEO y buenas prácticas. Recibirás un informe Lighthouse condensado con los problemas reales detectados en el sitio.
 
-Responde SOLO con JSON válido, sin markdown, sin backticks, sin explicaciones. El JSON debe seguir exactamente este esquema:
+REGLAS CRÍTICAS:
+1. Crea exactamente un step por cada elemento del array "failingItems" de cada categoría. NO inventes issues extra. NO omitas ninguno.
+2. TODO el texto debe estar en ESPAÑOL. Traduce los títulos al español de forma natural y precisa.
+3. El campo "description" de cada step debe explicar CÓMO solucionar el problema paso a paso (con ejemplos de código si aplica), basándote en el campo "description" del failing item.
+
+Responde SOLO con JSON válido, sin markdown, sin backticks, sin texto extra. Esquema exacto:
 
 {
-  "summary": "string - resumen general de 2-3 frases del estado del sitio y las mejoras principales necesarias",
+  "summary": "string - resumen de 2-3 frases en español del estado del sitio basándote en los scores y failing items reales",
   "categories": [
     {
       "category": "performance" | "accessibility" | "seo" | "bestPractices",
       "currentScore": number,
       "targetScore": 100,
-      "objective": "string - objetivo general para esta categoría",
+      "objective": "string en español - qué se necesita para llegar a 100",
       "steps": [
         {
-          "id": "string - identificador único corto (ej: perf-01)",
-          "title": "string - título corto y claro de la acción",
-          "description": "string - explicación paso a paso de CÓMO solucionar el problema, con ejemplos de código o configuración si aplica. Debe ser claro para alguien sin experiencia avanzada.",
+          "id": "string - id corto único (ej: perf-01)",
+          "title": "string en ESPAÑOL - título claro traducido del failing item",
+          "description": "string en ESPAÑOL - explicación paso a paso de CÓMO solucionar el problema. Incluye ejemplos concretos de código, configuración o comandos.",
           "priority": "alta" | "media" | "baja",
-          "estimatedImpact": "string - impacto concreto, ej: +15 puntos en Performance"
+          "estimatedImpact": "string en ESPAÑOL - impacto concreto basado en los datos reales del item"
         }
       ]
     }
   ]
 }
 
-Reglas:
-- Todo el texto DEBE estar en español
-- Cada step.description debe explicar CÓMO solucionar el problema paso a paso, no solo qué está mal
-- Ordena los steps por impacto (mayor ahorro primero)
-- priority "alta" = ahorro >1s o score <0.5, "media" = ahorro 0.2-1s o score 0.5-0.9, "baja" = resto
-- estimatedImpact debe ser concreto: "+X puntos en [categoría]"
-- Máximo 8 steps por categoría, enfócate en los más impactantes
-- Si una categoría ya tiene score >= 95, incluye solo 1-2 pasos de refinamiento
-- Incluye las 4 categorías siempre, en este orden: performance, accessibility, seo, bestPractices`;
+Reglas de prioridad:
+- "alta": score < 0.5 o savingsMs > 1000
+- "media": score 0.5–0.9 o savingsMs 200–1000
+- "baja": resto
+
+Ordena los steps de mayor a menor impacto (más savingsMs/savingsBytes primero, luego menor score).
+Incluye solo las categorías del array "categories" que recibes (las que tienen failing items).`;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function extractJSON(text: string): string {
   let cleaned = text.trim();
+  // Strip markdown fences
   if (cleaned.startsWith("```")) {
     cleaned = cleaned
       .replace(/^```(?:json)?\s*\n?/, "")
       .replace(/\n?```\s*$/, "");
+  }
+  // Find JSON boundaries in case model added preamble
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    cleaned = cleaned.slice(start, end + 1);
   }
   return cleaned.trim();
 }
@@ -103,7 +136,7 @@ function extractJSON(text: string): string {
 async function callModel(
   model: string,
   messages: { role: string; content: string }[],
-) {
+): Promise<{ summary: string; categories: unknown[] } | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
 
@@ -114,7 +147,7 @@ async function callModel(
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model, messages, temperature: 0.3 }),
+      body: JSON.stringify({ model, messages, temperature: 0.2 }),
       signal: controller.signal,
     });
 
@@ -129,7 +162,15 @@ async function callModel(
       return null;
     }
 
-    return (data.choices?.[0]?.message?.content as string) || null;
+    const content = (data.choices?.[0]?.message?.content as string) || null;
+    if (!content) return null;
+
+    const parsed = JSON.parse(extractJSON(content));
+    if (!Array.isArray(parsed.categories)) {
+      console.warn(`[roadmap] ${model} returned invalid schema`);
+      return null;
+    }
+    return parsed;
   } catch (err) {
     clearTimeout(timeout);
     console.warn(
@@ -138,6 +179,29 @@ async function callModel(
     );
     return null;
   }
+}
+
+// Race all models in parallel — take the first valid response
+async function raceModels(
+  messages: { role: string; content: string }[],
+): Promise<{ summary: string; categories: unknown[] } | null> {
+  return new Promise((resolve) => {
+    let settled = 0;
+    let resolved = false;
+
+    for (const model of FREE_MODELS) {
+      console.log(`[roadmap] Racing model: ${model}`);
+      callModel(model, messages).then((result) => {
+        settled++;
+        if (result && !resolved) {
+          resolved = true;
+          resolve(result);
+        } else if (settled === FREE_MODELS.length && !resolved) {
+          resolve(null);
+        }
+      });
+    }
+  });
 }
 
 // ── Route handler ────────────────────────────────────────────────────────────
@@ -152,23 +216,28 @@ export async function POST(req: Request) {
       );
     }
 
+    const condensed = condenseReport(report);
+
+    // If every category is perfect, return early with no roadmap needed
+    if (condensed.categories.length === 0) {
+      return Response.json({
+        summary:
+          "El sitio alcanza puntuaciones perfectas en todas las categorías de Lighthouse. No hay mejoras pendientes.",
+        categories: [],
+      });
+    }
+
     const messages = [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Analiza este informe Lighthouse y genera el roadmap:\n\n${JSON.stringify(condenseReport(report))}`,
+        content: `Genera el roadmap para este informe Lighthouse:\n\n${JSON.stringify(condensed)}`,
       },
     ];
 
-    let content: string | null = null;
+    const roadmap = await raceModels(messages);
 
-    for (const model of FREE_MODELS) {
-      console.log(`[roadmap] Trying model: ${model}`);
-      content = await callModel(model, messages);
-      if (content) break;
-    }
-
-    if (!content) {
+    if (!roadmap) {
       return Response.json(
         {
           error:
@@ -178,24 +247,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const roadmap = JSON.parse(extractJSON(content));
-
-    if (!Array.isArray(roadmap.categories)) {
-      return Response.json(
-        { error: "La respuesta de la IA no tiene el formato esperado" },
-        { status: 502 },
-      );
-    }
-
     return Response.json(roadmap);
   } catch (err) {
     console.error("[roadmap] Error:", err);
-    const message =
-      err instanceof SyntaxError
-        ? "La IA devolvió un formato no válido. Intenta de nuevo."
-        : err instanceof Error
-          ? err.message
-          : "Error desconocido";
+    const message = err instanceof Error ? err.message : "Error desconocido";
     return Response.json({ error: message }, { status: 500 });
   }
 }
