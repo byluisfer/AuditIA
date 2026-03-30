@@ -1,16 +1,20 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { UrlInput } from "./url-input";
 import type { LighthouseReport } from "../api/analyze/route";
 import { scoreToColor, scoreToLabel } from "../lib/score-utils";
-import { findRoadmapByUrl, saveRoadmap } from "../lib/storage";
+import { findRoadmapByUrlAndStrategy, saveRoadmap } from "../lib/storage";
 import type { Roadmap } from "../types/roadmap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ApiStatus = "idle" | "loading" | "done" | "error";
 type Strategy = "mobile" | "desktop";
 type ViewState = "form" | "terminal" | "results" | "roadmap-loading";
+type PostAnalyzeAction =
+  | { type: "redirect-existing"; roadmapId: string }
+  | { type: "auto-generate" }
+  | null;
 
 // ── HUD corner marks ──────────────────────────────────────────────────────────
 function Corners({ color = "var(--primary)" }: { color?: string }) {
@@ -851,16 +855,19 @@ export function HeroSection() {
     "idle" | "loading" | "done" | "error"
   >("idle");
   const [roadmapError, setRoadmapError] = useState("");
-  const [existingRoadmap, setExistingRoadmap] = useState<Roadmap | null>(null);
+  const [postAnalyzeAction, setPostAnalyzeAction] =
+    useState<PostAnalyzeAction>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const didHandleQueryPrefill = useRef(false);
 
-  async function handleGenerateRoadmap() {
-    if (!report) return;
-
-    const existing = findRoadmapByUrl(report.url);
+  async function generateRoadmapFromReport(reportData: LighthouseReport) {
+    const existing = findRoadmapByUrlAndStrategy(
+      reportData.url,
+      reportData.strategy,
+    );
     if (existing) {
-      setExistingRoadmap(existing);
-      router.push("/roadmaps");
+      router.push(`/roadmaps?id=${existing.id}`);
       return;
     }
 
@@ -872,7 +879,7 @@ export function HeroSection() {
       const res = await fetch("/api/roadmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(report),
+        body: JSON.stringify(reportData),
       });
       const data = await res.json();
 
@@ -894,25 +901,34 @@ export function HeroSection() {
 
       const roadmap: Roadmap = {
         id: crypto.randomUUID(),
-        url: report.url,
-        strategy: report.strategy,
+        url: reportData.url,
+        strategy: reportData.strategy,
         createdAt: new Date().toISOString(),
         summary: data.summary,
         categories,
+        scores: {
+          performance: reportData.categories.performance.score,
+          accessibility: reportData.categories.accessibility.score,
+          seo: reportData.categories.seo.score,
+          bestPractices: reportData.categories.bestPractices.score,
+        },
       };
 
-      saveRoadmap(roadmap);
-      setExistingRoadmap(roadmap);
+      const roadmapId = saveRoadmap(roadmap);
       setRoadmapStatus("done");
-      setTimeout(() => router.push("/roadmaps"), 1800);
+      setTimeout(() => router.push(`/roadmaps?id=${roadmapId}`), 1800);
     } catch (err) {
       setRoadmapError(err instanceof Error ? err.message : "Error desconocido");
       setRoadmapStatus("error");
     }
   }
 
-  async function handleAnalyze() {
-    const trimmed = url.trim();
+  async function runAnalyze(
+    targetUrl: string,
+    targetStrategy: Strategy,
+    options?: { autoGenerateRoadmap?: boolean },
+  ) {
+    const trimmed = targetUrl.trim();
     if (!trimmed) return;
 
     setAnalysisUrl(trimmed);
@@ -925,7 +941,7 @@ export function HeroSection() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: trimmed, strategy }),
+        body: JSON.stringify({ url: trimmed, strategy: targetStrategy }),
       });
       const data = await res.json();
 
@@ -936,21 +952,77 @@ export function HeroSection() {
       }
 
       const parsedReport = data as LighthouseReport;
-      const existing = findRoadmapByUrl(parsedReport.url);
+      const existingRoadmap = findRoadmapByUrlAndStrategy(
+        parsedReport.url,
+        parsedReport.strategy,
+      );
 
       setReport(parsedReport);
-      setExistingRoadmap(existing ?? null);
       setRoadmapStatus("idle");
       setRoadmapError("");
+      if (existingRoadmap) {
+        setPostAnalyzeAction({
+          type: "redirect-existing",
+          roadmapId: existingRoadmap.id,
+        });
+      } else if (options?.autoGenerateRoadmap) {
+        setPostAnalyzeAction({ type: "auto-generate" });
+      } else {
+        setPostAnalyzeAction(null);
+      }
       setApiStatus("done");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error desconocido");
+      setPostAnalyzeAction(null);
       setApiStatus("error");
     }
   }
 
+  useEffect(() => {
+    if (didHandleQueryPrefill.current) return;
+
+    const prefillUrl = searchParams.get("url")?.trim();
+    if (!prefillUrl) {
+      didHandleQueryPrefill.current = true;
+      return;
+    }
+
+    const rawStrategy = searchParams.get("strategy");
+    const prefillStrategy: Strategy =
+      rawStrategy === "mobile" ? "mobile" : "desktop";
+    const shouldAutorun = searchParams.get("autorun") === "1";
+    const shouldAutoGenerateRoadmap = searchParams.get("autogenerate") === "1";
+
+    setUrl(prefillUrl);
+    setStrategy(prefillStrategy);
+    didHandleQueryPrefill.current = true;
+
+    if (shouldAutorun) {
+      void runAnalyze(prefillUrl, prefillStrategy, {
+        autoGenerateRoadmap: shouldAutoGenerateRoadmap,
+      });
+    }
+  }, [searchParams]);
+
+  async function handleGenerateRoadmap() {
+    if (!report) return;
+    await generateRoadmapFromReport(report);
+  }
+
+  async function handleAnalyze() {
+    await runAnalyze(url, strategy);
+  }
+
   function handleTransitionDone() {
     if (apiStatus === "done") {
+      if (postAnalyzeAction?.type === "redirect-existing") {
+        router.push(`/roadmaps?id=${postAnalyzeAction.roadmapId}`);
+        return;
+      }
+      if (postAnalyzeAction?.type === "auto-generate" && report) {
+        void generateRoadmapFromReport(report);
+        return;
+      }
       setViewState("results");
     } else {
       setApiStatus("idle");
@@ -965,7 +1037,7 @@ export function HeroSection() {
     setErrorMessage("");
     setRoadmapStatus("idle");
     setRoadmapError("");
-    setExistingRoadmap(null);
+    setPostAnalyzeAction(null);
     setUrl("");
   }
 
@@ -1300,274 +1372,291 @@ export function HeroSection() {
           </div>
 
           {/* Generate roadmap CTA */}
-          <div style={{ position: "relative" }}>
-            <Corners color="rgba(107,255,143,0.3)" />
-            <div
-              style={{
-                backgroundColor: "var(--surface)",
-                border: "1px solid var(--surface-high)",
-                borderLeft: existingRoadmap
-                  ? "2px solid #0cce6b"
-                  : "2px solid var(--primary)",
-              }}
-            >
-              {/* Card header */}
-              <div
-                className="flex items-center justify-between px-6 py-3"
-                style={{
-                  borderBottom: "1px solid var(--surface-high)",
-                  backgroundColor: "var(--surface-high)",
-                  fontFamily: "var(--font-jetbrains-mono), monospace",
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <span
+          {(() => {
+            const existingRoadmap = report
+              ? findRoadmapByUrlAndStrategy(report.url, report.strategy)
+              : null;
+            const alreadyExists = !!existingRoadmap;
+            return (
+              <div style={{ position: "relative" }}>
+                <Corners color="rgba(107,255,143,0.3)" />
+                <div
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    border: "1px solid var(--surface-high)",
+                    borderLeft: alreadyExists
+                      ? "2px solid #0cce6b"
+                      : "2px solid var(--primary)",
+                  }}
+                >
+                  {/* Card header */}
+                  <div
+                    className="flex items-center justify-between px-6 py-3"
                     style={{
-                      color: existingRoadmap ? "#0cce6b" : "#0cce6b",
-                      opacity: 0.6,
-                      fontSize: "11px",
-                    }}
-                  >
-                    {"//"}
-                  </span>
-                  <span
-                    className="text-[10px] tracking-[0.2em] uppercase"
-                    style={{
-                      color: existingRoadmap ? "#0cce6b" : "var(--primary)",
-                    }}
-                  >
-                    {existingRoadmap ? "Roadmap activo" : "Siguiente paso"}
-                  </span>
-                </div>
-                {existingRoadmap && (
-                  <span
-                    style={{
+                      borderBottom: "1px solid var(--surface-high)",
+                      backgroundColor: "var(--surface-high)",
                       fontFamily: "var(--font-jetbrains-mono), monospace",
-                      fontSize: "9px",
-                      letterSpacing: "0.14em",
-                      padding: "2px 7px",
-                      border: "1px solid #0cce6b",
-                      color: "#0cce6b",
                     }}
                   >
-                    EXISTENTE
-                  </span>
-                )}
-              </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        style={{
+                          color: "#0cce6b",
+                          opacity: 0.6,
+                          fontSize: "11px",
+                        }}
+                      >
+                        {"//"}
+                      </span>
+                      <span
+                        className="text-[10px] tracking-[0.2em] uppercase"
+                        style={{
+                          color: alreadyExists ? "#0cce6b" : "var(--primary)",
+                        }}
+                      >
+                        {alreadyExists ? "Roadmap activo" : "Siguiente paso"}
+                      </span>
+                    </div>
+                    {existingRoadmap && (
+                      <span
+                        style={{
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          fontSize: "9px",
+                          letterSpacing: "0.14em",
+                          padding: "2px 7px",
+                          border: "1px solid #0cce6b",
+                          color: "#0cce6b",
+                        }}
+                      >
+                        EXISTENTE
+                      </span>
+                    )}
+                  </div>
 
-              {/* Body */}
-              <div className="p-6 flex flex-col gap-5">
-                {existingRoadmap ? (
-                  <>
-                    {/* Progress summary */}
-                    {(() => {
-                      const totalSteps = existingRoadmap.categories.reduce(
-                        (sum, cat) => sum + cat.steps.length,
-                        0,
-                      );
-                      const doneSteps = existingRoadmap.categories.reduce(
-                        (sum, cat) =>
-                          sum + cat.steps.filter((s) => s.checked).length,
-                        0,
-                      );
-                      const pct =
-                        totalSteps > 0
-                          ? Math.round((doneSteps / totalSteps) * 100)
-                          : 0;
-                      return (
-                        <div className="flex flex-col gap-3">
-                          <div className="flex items-center justify-between">
-                            <span
-                              className="text-xs"
-                              style={{
-                                color: "var(--text-dim)",
-                                fontFamily:
-                                  "var(--font-jetbrains-mono), monospace",
-                              }}
-                            >
-                              Progreso del roadmap
-                            </span>
-                            <span
-                              className="text-xs font-bold"
-                              style={{
-                                color: pct === 100 ? "#0cce6b" : "var(--text)",
-                                fontFamily:
-                                  "var(--font-jetbrains-mono), monospace",
-                              }}
-                            >
-                              {doneSteps}/{totalSteps} pasos · {pct}%
-                            </span>
-                          </div>
+                  {/* Body */}
+                  <div className="p-6 flex flex-col gap-5">
+                    {existingRoadmap ? (
+                      <>
+                        {/* Progress summary */}
+                        {(() => {
+                          const totalSteps = existingRoadmap.categories.reduce(
+                            (sum, cat) => sum + cat.steps.length,
+                            0,
+                          );
+                          const doneSteps = existingRoadmap.categories.reduce(
+                            (sum, cat) =>
+                              sum + cat.steps.filter((s) => s.checked).length,
+                            0,
+                          );
+                          const pct =
+                            totalSteps > 0
+                              ? Math.round((doneSteps / totalSteps) * 100)
+                              : 0;
+                          return (
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between">
+                                <span
+                                  className="text-xs"
+                                  style={{
+                                    color: "var(--text-dim)",
+                                    fontFamily:
+                                      "var(--font-jetbrains-mono), monospace",
+                                  }}
+                                >
+                                  Progreso del roadmap
+                                </span>
+                                <span
+                                  className="text-xs font-bold"
+                                  style={{
+                                    color:
+                                      pct === 100 ? "#0cce6b" : "var(--text)",
+                                    fontFamily:
+                                      "var(--font-jetbrains-mono), monospace",
+                                  }}
+                                >
+                                  {doneSteps}/{totalSteps} pasos · {pct}%
+                                </span>
+                              </div>
+                              <div
+                                className="w-full h-1.5 overflow-hidden"
+                                style={{
+                                  backgroundColor: "var(--surface-high)",
+                                  borderRadius: "1px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${pct}%`,
+                                    height: "100%",
+                                    backgroundColor: "#0cce6b",
+                                    transition: "width 0.3s ease",
+                                    boxShadow: "0 0 8px rgba(12,206,107,0.4)",
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Roadmap summary */}
+                        <div
+                          className="text-xs leading-relaxed px-3 py-2.5"
+                          style={{
+                            color: "var(--text-dim)",
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            borderLeft: "2px solid rgba(12,206,107,0.3)",
+                            backgroundColor: "rgba(12,206,107,0.04)",
+                          }}
+                        >
+                          {existingRoadmap.summary.length > 180
+                            ? existingRoadmap.summary.slice(0, 180) + "…"
+                            : existingRoadmap.summary}
+                        </div>
+
+                        {/* Created date */}
+                        <div
+                          className="text-[10px]"
+                          style={{
+                            color: "var(--text-dim)",
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            opacity: 0.5,
+                          }}
+                        >
+                          Creado el{" "}
+                          {new Date(
+                            existingRoadmap.createdAt,
+                          ).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+
+                        <button
+                          className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                          style={{
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            backgroundColor: "var(--surface-high)",
+                            color: "#0cce6b",
+                            border: "1px solid #0cce6b",
+                          }}
+                          onClick={() =>
+                            router.push(`/roadmaps?id=${existingRoadmap.id}`)
+                          }
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.filter = "brightness(0.92)";
+                          }}
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.filter = "")
+                          }
+                        >
+                          &gt; Continuar roadmap
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div>
                           <div
-                            className="w-full h-1.5 overflow-hidden"
+                            className="text-sm font-bold mb-1.5"
                             style={{
-                              backgroundColor: "var(--surface-high)",
-                              borderRadius: "1px",
+                              color: "var(--text)",
+                              fontFamily:
+                                "var(--font-jetbrains-mono), monospace",
                             }}
                           >
-                            <div
-                              style={{
-                                width: `${pct}%`,
-                                height: "100%",
-                                backgroundColor: "#0cce6b",
-                                transition: "width 0.3s ease",
-                                boxShadow: "0 0 8px rgba(12,206,107,0.4)",
-                              }}
-                            />
+                            Genera un roadmap con IA
+                          </div>
+                          <div
+                            className="text-xs leading-relaxed"
+                            style={{
+                              color: "var(--text-dim)",
+                              fontFamily:
+                                "var(--font-jetbrains-mono), monospace",
+                            }}
+                          >
+                            Convierte los errores de Lighthouse en un plan de
+                            acción priorizado para alcanzar 100 en las 4
+                            categorías.
                           </div>
                         </div>
-                      );
-                    })()}
 
-                    {/* Roadmap summary */}
-                    <div
-                      className="text-xs leading-relaxed px-3 py-2.5"
-                      style={{
-                        color: "var(--text-dim)",
-                        fontFamily: "var(--font-jetbrains-mono), monospace",
-                        borderLeft: "2px solid rgba(12,206,107,0.3)",
-                        backgroundColor: "rgba(12,206,107,0.04)",
-                      }}
-                    >
-                      {existingRoadmap.summary.length > 180
-                        ? existingRoadmap.summary.slice(0, 180) + "…"
-                        : existingRoadmap.summary}
-                    </div>
-
-                    {/* Created date */}
-                    <div
-                      className="text-[10px]"
-                      style={{
-                        color: "var(--text-dim)",
-                        fontFamily: "var(--font-jetbrains-mono), monospace",
-                        opacity: 0.5,
-                      }}
-                    >
-                      Creado el{" "}
-                      {new Date(existingRoadmap.createdAt).toLocaleDateString(
-                        "es-ES",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </div>
-
-                    <button
-                      className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
-                      style={{
-                        fontFamily: "var(--font-jetbrains-mono), monospace",
-                        backgroundColor: "var(--surface-high)",
-                        color: "#0cce6b",
-                        border: "1px solid #0cce6b",
-                      }}
-                      onClick={() => router.push("/roadmaps")}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.filter = "brightness(0.92)";
-                      }}
-                      onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
-                    >
-                      &gt; Continuar roadmap
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div>
+                        <button
+                          className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                          style={{
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            backgroundColor:
+                              roadmapStatus === "loading"
+                                ? "var(--surface-high)"
+                                : "var(--primary)",
+                            color:
+                              roadmapStatus === "loading"
+                                ? "var(--primary)"
+                                : "var(--primary-on)",
+                            boxShadow:
+                              roadmapStatus === "loading"
+                                ? "none"
+                                : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
+                          }}
+                          disabled={roadmapStatus === "loading"}
+                          onClick={handleGenerateRoadmap}
+                          onMouseEnter={(e) => {
+                            if (roadmapStatus !== "loading")
+                              e.currentTarget.style.filter = "brightness(0.88)";
+                          }}
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.filter = "")
+                          }
+                        >
+                          {roadmapStatus === "loading" ? (
+                            <>
+                              <span className="terminal-pulse">&gt;</span>
+                              Generando roadmap...
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="w-4 h-4 shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                                aria-hidden="true"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                                />
+                              </svg>
+                              &gt; Generar roadmap
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
+                    {roadmapError && (
                       <div
-                        className="text-sm font-bold mb-1.5"
+                        className="text-xs mt-3 px-3 py-2"
                         style={{
-                          color: "var(--text)",
+                          color: "#ff4e42",
                           fontFamily: "var(--font-jetbrains-mono), monospace",
+                          backgroundColor: "rgba(255,78,66,0.08)",
+                          border: "1px solid rgba(255,78,66,0.2)",
                         }}
                       >
-                        Genera un roadmap con IA
+                        Error: {roadmapError}
                       </div>
-                      <div
-                        className="text-xs leading-relaxed"
-                        style={{
-                          color: "var(--text-dim)",
-                          fontFamily: "var(--font-jetbrains-mono), monospace",
-                        }}
-                      >
-                        Convierte los errores de Lighthouse en un plan de acción
-                        priorizado para alcanzar 100 en las 4 categorías.
-                      </div>
-                    </div>
-
-                    <button
-                      className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
-                      style={{
-                        fontFamily: "var(--font-jetbrains-mono), monospace",
-                        backgroundColor:
-                          roadmapStatus === "loading"
-                            ? "var(--surface-high)"
-                            : "var(--primary)",
-                        color:
-                          roadmapStatus === "loading"
-                            ? "var(--primary)"
-                            : "var(--primary-on)",
-                        boxShadow:
-                          roadmapStatus === "loading"
-                            ? "none"
-                            : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
-                      }}
-                      disabled={roadmapStatus === "loading"}
-                      onClick={handleGenerateRoadmap}
-                      onMouseEnter={(e) => {
-                        if (roadmapStatus !== "loading")
-                          e.currentTarget.style.filter = "brightness(0.88)";
-                      }}
-                      onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
-                    >
-                      {roadmapStatus === "loading" ? (
-                        <>
-                          <span className="terminal-pulse">&gt;</span>
-                          Generando roadmap...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4 shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            strokeWidth={2}
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-                            />
-                          </svg>
-                          &gt; Generar roadmap
-                        </>
-                      )}
-                    </button>
-                  </>
-                )}
-                {roadmapError && (
-                  <div
-                    className="text-xs mt-3 px-3 py-2"
-                    style={{
-                      color: "#ff4e42",
-                      fontFamily: "var(--font-jetbrains-mono), monospace",
-                      backgroundColor: "rgba(255,78,66,0.08)",
-                      border: "1px solid rgba(255,78,66,0.2)",
-                    }}
-                  >
-                    Error: {roadmapError}
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       )}
     </main>

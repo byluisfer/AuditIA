@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 type Props = {
   value: string;
@@ -10,6 +10,9 @@ type Props = {
 
 export function UrlInput({ value: url, onChange, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+
+  const showCursor = focused || url.length > 0;
 
   return (
     <div
@@ -17,7 +20,10 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
       style={{ backgroundColor: "var(--surface-high)" }}
       onClick={() => inputRef.current?.focus()}
     >
-      <span className="text-xl select-none shrink-0" style={{ color: "var(--primary)" }}>
+      <span
+        className="text-xl select-none shrink-0"
+        style={{ color: "var(--primary)" }}
+      >
         $
       </span>
 
@@ -26,18 +32,24 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
           {url ? (
             <>
               <span style={{ color: "var(--text)" }}>{url}</span>
-              <span
-                className="cursor-blink shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px"
-                style={{ backgroundColor: "var(--primary)" }}
-              />
+              {showCursor && (
+                <span
+                  className={`shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px ${focused ? "cursor-blink" : ""}`}
+                  style={{ backgroundColor: "var(--primary)" }}
+                />
+              )}
             </>
           ) : (
             <>
-              <span
-                className="cursor-blink shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px mr-1"
-                style={{ backgroundColor: "var(--primary)" }}
-              />
-              <span style={{ color: "var(--text-dim)" }}>https://tu-web.com</span>
+              {showCursor && (
+                <span
+                  className={`shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px mr-1 ${focused ? "cursor-blink" : ""}`}
+                  style={{ backgroundColor: "var(--primary)" }}
+                />
+              )}
+              <span style={{ color: "var(--text-dim)" }}>
+                https://tu-web.com
+              </span>
             </>
           )}
         </div>
@@ -46,6 +58,8 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
           type="url"
           value={url}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           disabled={disabled}
           className="absolute inset-0 w-full opacity-0 cursor-text disabled:cursor-not-allowed"
           style={{ fontFamily: "inherit" }}

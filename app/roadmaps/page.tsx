@@ -1,14 +1,19 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Scanlines, Vignette } from "../components/overlays";
 import { Sidebar } from "../components/sidebar";
 import { Footer } from "../components/footer";
-import { updateRoadmap, deleteRoadmap } from "../lib/storage";
+import {
+  updateRoadmap,
+  deleteRoadmap,
+  normalizeRoadmapUrl,
+} from "../lib/storage";
 import { scoreToColor } from "../lib/score-utils";
 import type { Roadmap, CategoryRoadmap } from "../types/roadmap";
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "auditia-roadmaps";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -16,6 +21,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   accessibility: "Accesibilidad",
   seo: "SEO",
   bestPractices: "Buenas Prácticas",
+};
+
+const CATEGORY_SHORT: Record<string, string> = {
+  performance: "PERF",
+  accessibility: "A11Y",
+  seo: "SEO",
+  bestPractices: "BP",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -36,7 +48,16 @@ const PRIORITY_LABELS: Record<string, string> = {
   low: "Baja",
 };
 
-// ── localStorage sync ────────────────────────────────────────────────────────
+const ALL_CATEGORIES = [
+  "performance",
+  "accessibility",
+  "seo",
+  "bestPractices",
+] as const;
+const STRATEGIES = ["desktop", "mobile"] as const;
+type Strategy = (typeof STRATEGIES)[number];
+
+// ── Storage ───────────────────────────────────────────────────────────────────
 function subscribeStorage(cb: () => void) {
   window.addEventListener("storage", cb);
   return () => window.removeEventListener("storage", cb);
@@ -60,7 +81,70 @@ function getSnapshot(): Roadmap[] {
 
 const SERVER_SNAPSHOT: Roadmap[] = [];
 
-// ── Shared UI ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getScores(roadmap: Roadmap): Record<string, number> {
+  // Prefer stored scores (set at generation time), fall back to category data
+  if (roadmap.scores) return roadmap.scores as Record<string, number>;
+  const map: Record<string, number> = {};
+  roadmap.categories.forEach((c) => {
+    map[c.category] = c.currentScore;
+  });
+  return map;
+}
+
+function getDomain(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+function normalizeStrategy(rawStrategy: string): Strategy {
+  return rawStrategy === "mobile" ? "mobile" : "desktop";
+}
+
+function getRoadmapGroupsByUrl(roadmaps: Roadmap[]): Roadmap[] {
+  const seen = new Set<string>();
+  const grouped: Roadmap[] = [];
+
+  for (const roadmap of roadmaps) {
+    const key = normalizeRoadmapUrl(roadmap.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    grouped.push(roadmap);
+  }
+
+  return grouped;
+}
+
+function getStrategyAvailability(roadmaps: Roadmap[], url: string) {
+  const normalizedUrl = normalizeRoadmapUrl(url);
+  return {
+    desktop: roadmaps.some(
+      (item) =>
+        normalizeRoadmapUrl(item.url) === normalizedUrl &&
+        normalizeStrategy(item.strategy) === "desktop",
+    ),
+    mobile: roadmaps.some(
+      (item) =>
+        normalizeRoadmapUrl(item.url) === normalizedUrl &&
+        normalizeStrategy(item.strategy) === "mobile",
+    ),
+  };
+}
+
+function strategyAvailabilityLabel(availability: {
+  desktop: boolean;
+  mobile: boolean;
+}) {
+  if (availability.desktop && availability.mobile) return "Desktop/Mobile";
+  if (availability.desktop) return "Desktop";
+  if (availability.mobile) return "Mobile";
+  return "-";
+}
+
+// ── Shared UI ─────────────────────────────────────────────────────────────────
 function Corners({ color = "var(--primary)" }: { color?: string }) {
   const SIZE = 11;
   const OFF = -5;
@@ -128,6 +212,38 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
+function DeviceIcon({ device }: { device: Strategy }) {
+  if (device === "mobile") {
+    return (
+      <svg
+        className="w-3.5 h-3.5 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        aria-hidden="true"
+      >
+        <rect x="7" y="2" width="10" height="20" rx="2" />
+        <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      className="w-3.5 h-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      aria-hidden="true"
+    >
+      <rect x="2" y="4" width="20" height="13" rx="1.5" />
+      <path strokeLinecap="round" d="M8 21h8M12 17v4" />
+    </svg>
+  );
+}
+
 function ProgressBar({ checked, total }: { checked: number; total: number }) {
   const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
   return (
@@ -137,8 +253,12 @@ function ProgressBar({ checked, total }: { checked: number; total: number }) {
         style={{ backgroundColor: "var(--surface-high)" }}
       >
         <div
-          className="h-full rounded-full transition-all duration-300"
-          style={{ width: `${pct}%`, backgroundColor: "var(--primary)" }}
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: "var(--primary)",
+            boxShadow: "0 0 6px rgba(107,255,143,0.4)",
+          }}
         />
       </div>
       <span
@@ -151,7 +271,314 @@ function ProgressBar({ checked, total }: { checked: number; total: number }) {
   );
 }
 
-// ── Category section ─────────────────────────────────────────────────────────
+// ── Terminal ls listing ───────────────────────────────────────────────────────
+function TerminalLs({
+  roadmaps,
+  allRoadmaps,
+  onSelect,
+}: {
+  roadmaps: Roadmap[];
+  allRoadmaps: Roadmap[];
+  onSelect: (id: string) => void;
+}) {
+  const CMD = "ls -la ./roadmaps/";
+
+  return (
+    <div
+      className="w-full results-fade-in"
+      style={{
+        backgroundColor: "var(--surface)",
+        border: "1px solid var(--surface-high)",
+        borderLeft: "2px solid var(--primary)",
+        fontFamily: "var(--font-jetbrains-mono), monospace",
+        position: "relative",
+      }}
+    >
+      <Corners />
+
+      {/* Title bar */}
+      <div
+        className="flex items-center gap-4 px-5 py-3"
+        style={{
+          borderBottom: "1px solid var(--surface-high)",
+          backgroundColor: "var(--surface-high)",
+        }}
+      >
+        <div className="flex gap-1.5">
+          {(["#ff5f57", "#febc2e", "#28c840"] as const).map((c, i) => (
+            <span
+              key={i}
+              style={{
+                display: "inline-block",
+                width: 11,
+                height: 11,
+                borderRadius: "50%",
+                backgroundColor: c,
+              }}
+            />
+          ))}
+        </div>
+        <span
+          className="flex-1 text-center text-[10px] tracking-[0.25em] uppercase"
+          style={{ color: "var(--text-dim)" }}
+        >
+          AUDITIA · ROADMAP MANAGER
+        </span>
+        <span
+          style={{
+            fontSize: "9px",
+            letterSpacing: "0.14em",
+            padding: "2px 8px",
+            border: "1px solid var(--primary)",
+            color: "var(--primary)",
+          }}
+        >
+          {roadmaps.length} ARCHIVO{roadmaps.length !== 1 ? "S" : ""}
+        </span>
+      </div>
+
+      {/* Terminal body */}
+      <div className="p-6 md:p-8">
+        {/* Static command line */}
+        <div
+          className="mb-5 flex items-baseline gap-2"
+          style={{ fontSize: "0.875rem" }}
+        >
+          <span style={{ color: "#0cce6b" }}>root@auditia</span>
+          <span style={{ color: "var(--text-dim)" }}>:~#</span>
+          <span style={{ color: "var(--text)", marginLeft: "0.25rem" }}>
+            {CMD}
+          </span>
+        </div>
+
+        {/* Column headers */}
+        <div
+          className="flex items-center gap-4 px-3 py-1.5 mb-2 text-[9px] tracking-[0.14em] uppercase"
+          style={{
+            color: "var(--text-dim)",
+            borderBottom: "1px solid var(--surface-high)",
+            opacity: 0.6,
+          }}
+        >
+          <span className="w-24 shrink-0">Fecha</span>
+          <span className="flex-1">Dominio</span>
+          <span className="hidden md:block w-24 text-center shrink-0">
+            Vistas
+          </span>
+          <span className="w-16 text-right shrink-0">Progreso</span>
+          <span className="w-12 text-right shrink-0">Tasks</span>
+        </div>
+
+        {/* Roadmap entries */}
+        <div className="flex flex-col gap-0.5">
+          {roadmaps.map((r, idx) => {
+            const active = r.categories.filter((c) => c.steps.length > 0);
+            const total = active.reduce((s, c) => s + c.steps.length, 0);
+            const done = active.reduce(
+              (s, c) => s + c.steps.filter((s2) => s2.checked).length,
+              0,
+            );
+            const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+            const availability = getStrategyAvailability(allRoadmaps, r.url);
+            const scores = getScores(r);
+            const avgScore =
+              Object.keys(scores).length > 0
+                ? Math.round(
+                    Object.values(scores).reduce((a, b) => a + b, 0) /
+                      Object.values(scores).length,
+                  )
+                : null;
+            const domain = getDomain(r.url);
+            const date = new Date(r.createdAt).toLocaleDateString("es-ES", {
+              day: "2-digit",
+              month: "short",
+            });
+
+            return (
+              <button
+                key={r.id}
+                onClick={() => onSelect(r.id)}
+                className="ls-entry-in flex items-center gap-4 px-3 py-3 text-left group w-full"
+                style={{
+                  animationDelay: `${idx * 40}ms`,
+                  border: "1px solid transparent",
+                  transition: "background 0.1s, border-color 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "var(--surface-high)";
+                  e.currentTarget.style.borderColor = "rgba(107,255,143,0.25)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.borderColor = "transparent";
+                }}
+              >
+                {/* Date */}
+                <span
+                  className="text-[10px] w-24 shrink-0"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  {date}
+                </span>
+
+                {/* Domain + score badges */}
+                <div className="flex-1 flex items-center gap-3 min-w-0">
+                  <span
+                    className="text-xs font-bold truncate"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    <span
+                      style={{
+                        color: "var(--text-dim)",
+                        marginRight: "0.3rem",
+                      }}
+                    >
+                      ./
+                    </span>
+                    {domain}
+                  </span>
+                  {avgScore !== null && (
+                    <span
+                      className="text-[9px] px-1.5 py-0.5 shrink-0 font-bold"
+                      style={{
+                        color: scoreToColor(avgScore),
+                        border: `1px solid ${scoreToColor(avgScore)}40`,
+                        backgroundColor: `${scoreToColor(avgScore)}0f`,
+                      }}
+                    >
+                      {avgScore} avg
+                    </span>
+                  )}
+                </div>
+
+                {/* Strategy */}
+                <span
+                  className="hidden md:block text-[10px] uppercase w-24 text-center shrink-0"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  {strategyAvailabilityLabel(availability)}
+                </span>
+
+                {/* Progress % */}
+                <span
+                  className="text-xs font-bold w-16 text-right shrink-0"
+                  style={{ color: pct === 100 ? "#0cce6b" : "var(--primary)" }}
+                >
+                  {pct}%
+                </span>
+
+                {/* Tasks */}
+                <span
+                  className="text-[10px] w-12 text-right shrink-0"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  {done}/{total}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div
+        className="flex items-center justify-between px-5 py-2"
+        style={{
+          borderTop: "1px solid var(--surface-high)",
+          backgroundColor: "var(--surface-high)",
+        }}
+      >
+        <span
+          className="text-[9px] tracking-[0.12em] uppercase"
+          style={{ color: "var(--text-dim)", opacity: 0.6 }}
+        >
+          Selecciona un roadmap para continuar
+        </span>
+        <span
+          className="text-[9px]"
+          style={{ color: "var(--text-dim)", opacity: 0.4 }}
+        >
+          {roadmaps.length} roadmap{roadmaps.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Score panel ───────────────────────────────────────────────────────────────
+function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
+  const scores = getScores(roadmap);
+  const activeSet = new Set(
+    roadmap.categories.filter((c) => c.steps.length > 0).map((c) => c.category),
+  );
+
+  return (
+    <div
+      className="grid"
+      style={{
+        gridTemplateColumns: `repeat(${ALL_CATEGORIES.length}, 1fr)`,
+        borderBottom: "1px solid var(--surface-high)",
+      }}
+    >
+      {ALL_CATEGORIES.map((cat, i) => {
+        const score = scores[cat] ?? 100;
+        const color = scoreToColor(score);
+        const label = CATEGORY_SHORT[cat];
+        const hasIssues = activeSet.has(cat);
+
+        return (
+          <div
+            key={cat}
+            className="flex flex-col items-center gap-1.5 py-5"
+            style={{
+              borderRight:
+                i < ALL_CATEGORIES.length - 1
+                  ? "1px solid var(--surface-high)"
+                  : "none",
+            }}
+          >
+            <span
+              className="text-[9px] tracking-[0.14em] uppercase"
+              style={{ color: "var(--text-dim)" }}
+            >
+              {label}
+            </span>
+            <span
+              className="score-pop text-3xl font-black tabular-nums"
+              style={{
+                color,
+                textShadow: `0 0 18px ${color}55`,
+                animationDelay: `${i * 80}ms`,
+              }}
+            >
+              {score}
+            </span>
+            <div className="flex items-center gap-1">
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  backgroundColor: hasIssues ? "#ffa400" : "#0cce6b",
+                  boxShadow: `0 0 5px ${hasIssues ? "#ffa400" : "#0cce6b"}`,
+                }}
+              />
+              <span
+                className="text-[9px] uppercase tracking-wider"
+                style={{ color: hasIssues ? "#ffa400" : "#0cce6b" }}
+              >
+                {hasIssues ? "mejoras" : "ok"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Category section ──────────────────────────────────────────────────────────
 function CategorySection({
   cat,
   roadmapId,
@@ -162,6 +589,7 @@ function CategorySection({
   const [expanded, setExpanded] = useState(true);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const checked = cat.steps.filter((s) => s.checked).length;
+  const color = scoreToColor(cat.currentScore);
 
   function toggleStep(stepId: string) {
     updateRoadmap(roadmapId, (r) => ({
@@ -195,17 +623,17 @@ function CategorySection({
         backgroundColor: "var(--surface)",
       }}
     >
-      {/* Category header */}
+      {/* Header */}
       <button
-        className="w-full flex items-center gap-3 px-5 py-3 text-left"
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left"
         style={{
           borderBottom: expanded ? "1px solid var(--surface-high)" : "none",
         }}
         onClick={() => setExpanded(!expanded)}
       >
         <span
-          className="text-[10px] font-bold"
-          style={{ color: scoreToColor(cat.currentScore) }}
+          className="text-sm font-black tabular-nums w-8 text-right shrink-0"
+          style={{ color, textShadow: `0 0 8px ${color}66` }}
         >
           {cat.currentScore}
         </span>
@@ -235,7 +663,7 @@ function CategorySection({
           <div className="flex flex-col gap-1.5 mt-2">
             {cat.steps.map((step) => {
               const isExpanded = expandedSteps.has(step.id);
-              const priorityColor = PRIORITY_COLORS[step.priority];
+              const priorityColor = PRIORITY_COLORS[step.priority] ?? "#888";
 
               return (
                 <div
@@ -246,45 +674,59 @@ function CategorySection({
                       : "var(--surface-high)",
                     border: "1px solid",
                     borderColor: step.checked
-                      ? "rgba(107,255,143,0.15)"
+                      ? "rgba(107,255,143,0.18)"
                       : "transparent",
+                    transition: "background 0.25s, border-color 0.25s",
                   }}
                 >
                   <div className="flex items-start gap-3 px-4 py-3">
                     {/* Checkbox */}
                     <button
-                      className="mt-0.5 shrink-0 w-4 h-4 border flex items-center justify-center"
+                      className="mt-0.5 shrink-0 px-1.5 py-0.5 text-[11px] font-bold tracking-[0.08em] transition-all duration-150"
+                      aria-label={
+                        step.checked
+                          ? "Marcar como pendiente"
+                          : "Marcar como completado"
+                      }
                       style={{
+                        fontFamily: "var(--font-jetbrains-mono), monospace",
+                        color: step.checked ? "#0cce6b" : "var(--text-dim)",
+                        border: "1px solid",
                         borderColor: step.checked
-                          ? "var(--primary)"
+                          ? "rgba(12,206,107,0.45)"
                           : "var(--outline)",
                         backgroundColor: step.checked
-                          ? "var(--primary)"
+                          ? "rgba(12,206,107,0.08)"
                           : "transparent",
+                        boxShadow: step.checked
+                          ? "0 0 10px rgba(12,206,107,0.28)"
+                          : "none",
                       }}
                       onClick={() => toggleStep(step.id)}
+                      onMouseEnter={(e) => {
+                        if (!step.checked) {
+                          e.currentTarget.style.color = "var(--primary)";
+                          e.currentTarget.style.borderColor =
+                            "rgba(107,255,143,0.35)";
+                          e.currentTarget.style.backgroundColor =
+                            "rgba(107,255,143,0.05)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!step.checked) {
+                          e.currentTarget.style.color = "var(--text-dim)";
+                          e.currentTarget.style.borderColor = "var(--outline)";
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }
+                      }}
                     >
-                      {step.checked && (
-                        <svg
-                          className="w-2.5 h-2.5"
-                          fill="none"
-                          stroke="var(--primary-on)"
-                          viewBox="0 0 24 24"
-                          strokeWidth={3}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
+                      {step.checked ? "[X]" : "[ ]"}
                     </button>
 
                     {/* Title + priority + impact */}
                     <div className="flex-1 min-w-0">
                       <button
-                        className="w-full text-left flex items-center gap-2"
+                        className="w-full text-left flex items-start gap-2 flex-wrap"
                         onClick={() => toggleStepExpand(step.id)}
                       >
                         <span
@@ -352,9 +794,171 @@ function CategorySection({
   );
 }
 
-// ── Roadmap card ─────────────────────────────────────────────────────────────
-function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
+// ── Roadmap card ──────────────────────────────────────────────────────────────
+function RoadmapCard({
+  roadmaps,
+  selectedRoadmap,
+  onBack,
+}: {
+  roadmaps: Roadmap[];
+  selectedRoadmap: Roadmap;
+  onBack?: () => void;
+}) {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [activeStrategy, setActiveStrategy] = useState<Strategy>(
+    normalizeStrategy(selectedRoadmap.strategy),
+  );
+
+  useEffect(() => {
+    setActiveStrategy(normalizeStrategy(selectedRoadmap.strategy));
+    setShowConfirm(false);
+  }, [selectedRoadmap.id]);
+
+  const normalizedUrl = normalizeRoadmapUrl(selectedRoadmap.url);
+  const strategyRoadmaps: Record<Strategy, Roadmap | undefined> = {
+    desktop: roadmaps.find(
+      (item) =>
+        normalizeRoadmapUrl(item.url) === normalizedUrl &&
+        normalizeStrategy(item.strategy) === "desktop",
+    ),
+    mobile: roadmaps.find(
+      (item) =>
+        normalizeRoadmapUrl(item.url) === normalizedUrl &&
+        normalizeStrategy(item.strategy) === "mobile",
+    ),
+  };
+
+  const roadmap = strategyRoadmaps[activeStrategy];
+  const selectedDate = new Date(selectedRoadmap.createdAt).toLocaleDateString(
+    "es-ES",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  );
+
+  if (!roadmap) {
+    const analyzeHref = `/?url=${encodeURIComponent(
+      selectedRoadmap.url,
+    )}&strategy=${activeStrategy}&autorun=1&autogenerate=1`;
+
+    return (
+      <div className="results-fade-in" style={{ position: "relative" }}>
+        <Corners color="rgba(107,255,143,0.3)" />
+        <div
+          style={{
+            backgroundColor: "var(--surface)",
+            border: "1px solid var(--surface-high)",
+          }}
+        >
+          <div
+            className="flex items-center gap-3 px-6 py-3 flex-wrap"
+            style={{
+              borderBottom: "1px solid var(--surface-high)",
+              backgroundColor: "var(--surface-high)",
+            }}
+          >
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="text-[10px] px-2.5 py-1 uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 shrink-0"
+                style={{
+                  color: "var(--primary)",
+                  border: "1px solid rgba(107,255,143,0.3)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(107,255,143,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                ← ls
+              </button>
+            )}
+            <span style={{ color: "#0cce6b", opacity: 0.6, fontSize: "11px" }}>
+              {"// "}
+            </span>
+            <span
+              className="text-[10px] tracking-[0.18em] uppercase flex-1 truncate"
+              style={{ color: "var(--primary)" }}
+            >
+              {selectedRoadmap.url}
+            </span>
+            <div
+              className="flex items-center gap-1.5 shrink-0"
+              role="tablist"
+              aria-label="Vista por dispositivo"
+            >
+              {STRATEGIES.map((device) => {
+                const isActive = activeStrategy === device;
+                const exists = !!strategyRoadmaps[device];
+                return (
+                  <button
+                    key={device}
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveStrategy(device)}
+                    className="px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] inline-flex items-center gap-1.5"
+                    style={{
+                      color: isActive ? "var(--primary-on)" : "var(--text-dim)",
+                      backgroundColor: isActive
+                        ? "var(--primary)"
+                        : "var(--surface)",
+                      border: exists
+                        ? "1px solid var(--outline)"
+                        : "1px solid rgba(255,164,0,0.35)",
+                    }}
+                  >
+                    <DeviceIcon device={device} />
+                    {device === "desktop" ? "Desktop" : "Mobile"}
+                  </button>
+                );
+              })}
+            </div>
+            <span
+              className="text-[10px] shrink-0"
+              style={{ color: "var(--text-dim)" }}
+            >
+              {selectedDate}
+            </span>
+          </div>
+
+          <div className="px-6 py-8 flex flex-col gap-4">
+            <div
+              className="text-[11px] tracking-[0.15em] uppercase"
+              style={{ color: "#ffa400" }}
+            >
+              No existe roadmap para{" "}
+              {activeStrategy === "desktop" ? "Desktop" : "Mobile"}
+            </div>
+            <p
+              className="text-xs leading-relaxed"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Este dominio ya tiene roadmap en el otro dispositivo. Ejecuta un
+              análisis en {activeStrategy === "desktop" ? "Desktop" : "Mobile"}{" "}
+              para crear su roadmap.
+            </p>
+            <Link
+              href={analyzeHref}
+              className="inline-flex items-center justify-center px-4 py-3 text-[11px] tracking-[0.2em] uppercase font-bold"
+              style={{
+                color: "var(--primary-on)",
+                backgroundColor: "var(--primary)",
+                width: "fit-content",
+              }}
+            >
+              &gt; Ejecutar análisis{" "}
+              {activeStrategy === "desktop" ? "Desktop" : "Mobile"}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const activeCategories = roadmap.categories.filter((c) => c.steps.length > 0);
   const totalSteps = activeCategories.reduce(
@@ -366,7 +970,7 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
     0,
   );
   const pct =
-    totalSteps > 0 ? Math.round((checkedSteps / totalSteps) * 100) : 0;
+    totalSteps > 0 ? Math.round((checkedSteps / totalSteps) * 100) : 100;
 
   const date = new Date(roadmap.createdAt).toLocaleDateString("es-ES", {
     day: "2-digit",
@@ -375,7 +979,7 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
   });
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="results-fade-in" style={{ position: "relative" }}>
       <Corners color="rgba(107,255,143,0.3)" />
       <div
         style={{
@@ -385,39 +989,85 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
       >
         {/* Header */}
         <div
-          className="flex items-center gap-3 px-6 py-3"
+          className="flex items-center gap-3 px-6 py-3 flex-wrap"
           style={{
             borderBottom: "1px solid var(--surface-high)",
             backgroundColor: "var(--surface-high)",
           }}
         >
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="text-[10px] px-2.5 py-1 uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 shrink-0"
+              style={{
+                color: "var(--primary)",
+                border: "1px solid rgba(107,255,143,0.3)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(107,255,143,0.08)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              ← ls
+            </button>
+          )}
           <span style={{ color: "#0cce6b", opacity: 0.6, fontSize: "11px" }}>
-            {"//"}
+            {"// "}
           </span>
           <span
-            className="text-[10px] tracking-[0.2em] uppercase flex-1 truncate"
+            className="text-[10px] tracking-[0.18em] uppercase flex-1 truncate"
             style={{ color: "var(--primary)" }}
           >
             {roadmap.url}
           </span>
-          <span
-            className="text-[10px] px-2 py-0.5 uppercase tracking-wider"
-            style={{
-              color: "var(--text-dim)",
-              backgroundColor: "var(--surface)",
-              border: "1px solid var(--outline)",
-            }}
+          <div
+            className="flex items-center gap-1.5 shrink-0"
+            role="tablist"
+            aria-label="Vista por dispositivo"
           >
-            {roadmap.strategy}
-          </span>
-          <span className="text-[10px]" style={{ color: "var(--text-dim)" }}>
+            {STRATEGIES.map((device) => {
+              const isActive = activeStrategy === device;
+              const exists = !!strategyRoadmaps[device];
+              return (
+                <button
+                  key={device}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    setActiveStrategy(device);
+                    setShowConfirm(false);
+                  }}
+                  className="px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] inline-flex items-center gap-1.5"
+                  style={{
+                    color: isActive ? "var(--primary-on)" : "var(--text-dim)",
+                    backgroundColor: isActive
+                      ? "var(--primary)"
+                      : "var(--surface)",
+                    border: exists
+                      ? "1px solid var(--outline)"
+                      : "1px solid rgba(255,164,0,0.35)",
+                  }}
+                >
+                  <DeviceIcon device={device} />
+                  {device === "desktop" ? "Desktop" : "Mobile"}
+                </button>
+              );
+            })}
+          </div>
+          <span
+            className="text-[10px] shrink-0"
+            style={{ color: "var(--text-dim)" }}
+          >
             {date}
           </span>
 
           {/* Delete */}
           {!showConfirm ? (
             <button
-              className="text-[10px] px-2 py-0.5 uppercase tracking-wider transition-colors"
+              className="text-[10px] px-2 py-0.5 uppercase tracking-wider transition-colors shrink-0"
               style={{
                 color: "#ff4e42",
                 border: "1px solid rgba(255,78,66,0.3)",
@@ -427,12 +1077,12 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
               Eliminar
             </button>
           ) : (
-            <div className="flex gap-1">
+            <div className="flex gap-1 shrink-0">
               <button
                 className="text-[10px] px-2 py-0.5 uppercase tracking-wider"
                 style={{
                   color: "#ff4e42",
-                  backgroundColor: "rgba(255,78,66,0.15)",
+                  backgroundColor: "rgba(255,78,66,0.12)",
                   border: "1px solid rgba(255,78,66,0.3)",
                 }}
                 onClick={() => deleteRoadmap(roadmap.id)}
@@ -453,12 +1103,18 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
           )}
         </div>
 
+        {/* Score panel — all 4 categories */}
+        <ScorePanel roadmap={roadmap} />
+
         {/* Progress + summary */}
-        <div className="px-6 py-4 flex flex-col gap-4">
+        <div className="px-6 py-5 flex flex-col gap-4">
           <div className="flex items-center gap-4">
             <div
-              className="text-2xl font-black tabular-nums"
-              style={{ color: "var(--primary)" }}
+              className="text-3xl font-black tabular-nums"
+              style={{
+                color: "var(--primary)",
+                textShadow: "0 0 24px rgba(107,255,143,0.35)",
+              }}
             >
               {pct}%
             </div>
@@ -472,20 +1128,9 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
               <ProgressBar checked={checkedSteps} total={totalSteps} />
             </div>
           </div>
-
-          <p
-            className="text-xs leading-relaxed"
-            style={{
-              color: "var(--text-dim)",
-              borderLeft: "2px solid var(--primary)",
-              paddingLeft: "12px",
-            }}
-          >
-            {roadmap.summary}
-          </p>
         </div>
 
-        {/* Categories — only show those with actual steps */}
+        {/* Categories — only those with actual steps */}
         <div className="px-6 pb-6 flex flex-col gap-3">
           {roadmap.categories
             .filter((cat) => cat.steps.length > 0)
@@ -502,13 +1147,37 @@ function RoadmapCard({ roadmap }: { roadmap: Roadmap }) {
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
-export default function Logs() {
+// ── Page ──────────────────────────────────────────────────────────────────────
+export default function RoadmapsPage() {
   const roadmaps = useSyncExternalStore(
     subscribeStorage,
     getSnapshot,
     () => SERVER_SNAPSHOT,
   );
+  const groupedRoadmaps = useMemo(
+    () => getRoadmapGroupsByUrl(roadmaps),
+    [roadmaps],
+  );
+  const searchParams = useSearchParams();
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    searchParams.get("id"),
+  );
+
+  // When only 1 roadmap, go straight to detail
+  const showLs = groupedRoadmaps.length > 1 && selectedId === null;
+  const activeRoadmap =
+    selectedId != null
+      ? (roadmaps.find((r) => r.id === selectedId) ?? roadmaps[0])
+      : groupedRoadmaps.length === 1
+        ? groupedRoadmaps[0]
+        : null;
+
+  // If selected roadmap was deleted, go back to ls
+  useEffect(() => {
+    if (selectedId && !roadmaps.find((r) => r.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [roadmaps, selectedId]);
 
   return (
     <div
@@ -523,21 +1192,21 @@ export default function Logs() {
       <Sidebar />
 
       <main
-        className="flex flex-col min-h-screen px-8 lg:px-16 py-12"
+        className="flex flex-col min-h-screen px-6 lg:px-14 py-12"
         style={{
           marginLeft: "var(--sidebar-w, 15rem)",
           transition: "margin-left 0.2s ease",
         }}
       >
         {/* Page header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-3 mb-8">
           <h1
             className="text-sm tracking-[0.3em] uppercase font-bold"
             style={{ color: "var(--text)" }}
           >
             Roadmaps
           </h1>
-          {roadmaps.length > 0 && (
+          {groupedRoadmaps.length > 0 && (
             <span
               className="text-[10px] px-2 py-0.5 tabular-nums"
               style={{
@@ -546,58 +1215,78 @@ export default function Logs() {
                 border: "1px solid rgba(107,255,143,0.2)",
               }}
             >
-              {roadmaps.length}
+              {groupedRoadmaps.length}
             </span>
           )}
         </div>
 
-        {roadmaps.length === 0 ? (
+        {/* Main content */}
+        {groupedRoadmaps.length === 0 ? (
+          /* Empty state — terminal style */
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center flex flex-col items-center gap-4">
-              <svg
-                className="w-10 h-10"
-                style={{ color: "var(--outline)" }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                strokeWidth={1}
+            <div className="flex flex-col items-center gap-5">
+              <div
+                className="text-left px-8 py-6"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--surface-high)",
+                  borderLeft: "2px solid var(--outline)",
+                }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <div>
-                <p
-                  className="text-xs mb-1"
-                  style={{ color: "var(--text-dim)" }}
+                <div className="flex items-baseline gap-2 text-sm mb-3">
+                  <span style={{ color: "#0cce6b" }}>root@auditia</span>
+                  <span style={{ color: "var(--text-dim)" }}>:~/roadmaps#</span>
+                  <span style={{ color: "var(--text)" }}>ls -la</span>
+                </div>
+                <div className="text-xs" style={{ color: "var(--text-dim)" }}>
+                  total 0
+                </div>
+                <div
+                  className="text-xs mt-1"
+                  style={{ color: "var(--outline)" }}
                 >
-                  No hay roadmaps generados
-                </p>
-                <p className="text-[10px]" style={{ color: "var(--outline)" }}>
-                  Analiza una URL y genera tu primer roadmap con IA
-                </p>
+                  No se encontraron roadmaps en este directorio.
+                </div>
               </div>
               <Link
                 href="/"
-                className="text-[10px] tracking-[0.2em] uppercase px-4 py-2 transition-colors"
+                className="text-[10px] tracking-[0.2em] uppercase px-5 py-2.5 transition-all"
                 style={{
                   color: "var(--primary)",
                   border: "1px solid var(--primary)",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.backgroundColor =
+                    "rgba(107,255,143,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.backgroundColor =
+                    "transparent";
                 }}
               >
                 &gt; Ir al análisis
               </Link>
             </div>
           </div>
-        ) : (
+        ) : showLs ? (
+          <TerminalLs
+            roadmaps={groupedRoadmaps}
+            allRoadmaps={roadmaps}
+            onSelect={setSelectedId}
+          />
+        ) : activeRoadmap ? (
           <div className="flex flex-col gap-8">
-            {roadmaps.map((roadmap) => (
-              <RoadmapCard key={roadmap.id} roadmap={roadmap} />
-            ))}
+            <RoadmapCard
+              roadmaps={roadmaps}
+              selectedRoadmap={activeRoadmap}
+              onBack={
+                groupedRoadmaps.length > 1
+                  ? () => setSelectedId(null)
+                  : undefined
+              }
+            />
           </div>
-        )}
+        ) : null}
       </main>
 
       <Footer />

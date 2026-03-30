@@ -3,7 +3,9 @@ import type { Roadmap } from "../types/roadmap";
 const STORAGE_KEY = "auditia-roadmaps";
 const MAX_ROADMAPS = 20;
 
-function normalizeRoadmapUrl(rawUrl: string): string {
+type Strategy = "desktop" | "mobile";
+
+export function normalizeRoadmapUrl(rawUrl: string): string {
   const withProtocol = /^https?:\/\//i.test(rawUrl)
     ? rawUrl
     : `https://${rawUrl}`;
@@ -21,6 +23,21 @@ function normalizeRoadmapUrl(rawUrl: string): string {
   }
 }
 
+function normalizeRoadmapStrategy(rawStrategy: string): Strategy {
+  return rawStrategy === "mobile" ? "mobile" : "desktop";
+}
+
+function roadmapMatchesTarget(
+  item: Roadmap,
+  normalizedUrl: string,
+  strategy?: Strategy,
+): boolean {
+  const itemMatchesUrl = normalizeRoadmapUrl(item.url) === normalizedUrl;
+  if (!itemMatchesUrl) return false;
+  if (!strategy) return true;
+  return normalizeRoadmapStrategy(item.strategy) === strategy;
+}
+
 function notify() {
   window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
 }
@@ -36,8 +53,18 @@ export function getRoadmaps(): Roadmap[] {
 
 export function findRoadmapByUrl(url: string): Roadmap | undefined {
   const normalizedTarget = normalizeRoadmapUrl(url);
-  return getRoadmaps().find(
-    (item) => normalizeRoadmapUrl(item.url) === normalizedTarget,
+  return getRoadmaps().find((item) =>
+    roadmapMatchesTarget(item, normalizedTarget),
+  );
+}
+
+export function findRoadmapByUrlAndStrategy(
+  url: string,
+  strategy: Strategy,
+): Roadmap | undefined {
+  const normalizedTarget = normalizeRoadmapUrl(url);
+  return getRoadmaps().find((item) =>
+    roadmapMatchesTarget(item, normalizedTarget, strategy),
   );
 }
 
@@ -45,8 +72,9 @@ export function saveRoadmap(roadmap: Roadmap): string {
   const list = getRoadmaps();
 
   const normalizedTarget = normalizeRoadmapUrl(roadmap.url);
-  const existingIdx = list.findIndex(
-    (item) => normalizeRoadmapUrl(item.url) === normalizedTarget,
+  const strategy = normalizeRoadmapStrategy(roadmap.strategy);
+  const existingIdx = list.findIndex((item) =>
+    roadmapMatchesTarget(item, normalizedTarget, strategy),
   );
 
   if (existingIdx !== -1) {

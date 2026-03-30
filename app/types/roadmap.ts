@@ -18,8 +18,15 @@ export type CategoryRoadmap = {
 export type Roadmap = {
   id: string;
   url: string;
-  strategy: string;
+  strategy: "desktop" | "mobile";
   createdAt: string;
   summary: string;
   categories: CategoryRoadmap[];
+  /** All 4 Lighthouse scores at the time the roadmap was generated */
+  scores?: {
+    performance: number;
+    accessibility: number;
+    seo: number;
+    bestPractices: number;
+  };
 };

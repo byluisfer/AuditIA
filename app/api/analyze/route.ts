@@ -47,7 +47,7 @@ export type CategoryReport = {
 };
 export type LighthouseReport = {
   url: string;
-  strategy: string;
+  strategy: "desktop" | "mobile";
   fetchTime: string;
   lighthouseVersion: string;
   categories: {
@@ -182,6 +182,8 @@ function buildCategoryReport(
 // Route handler
 export async function POST(req: NextRequest) {
   const { url: rawUrl, strategy = "mobile" } = await req.json();
+  const requestedStrategy: "desktop" | "mobile" =
+    strategy === "desktop" ? "desktop" : "mobile";
 
   if (!rawUrl) return new Response("Missing URL", { status: 400 });
 
@@ -190,7 +192,7 @@ export async function POST(req: NextRequest) {
 
   let lhr: Record<string, unknown>;
   try {
-    lhr = await runLighthouse(url, strategy as "desktop" | "mobile");
+    lhr = await runLighthouse(url, requestedStrategy);
   } catch (err) {
     return new Response(
       `ERROR_LIGHTHOUSE: ${err instanceof Error ? err.message : "Failed to run Lighthouse"}`,
@@ -203,7 +205,7 @@ export async function POST(req: NextRequest) {
 
   const report: LighthouseReport = {
     url,
-    strategy,
+    strategy: requestedStrategy,
     fetchTime: lhr.fetchTime as string,
     lighthouseVersion: lhr.lighthouseVersion as string,
     categories: {
