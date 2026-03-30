@@ -117,3 +117,180 @@ pre {
 .results-fade-in {
   animation: results-fade-in 0.4s ease forwards;
 }
+
+@keyframes startup-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes startup-cube-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes startup-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes startup-cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes startup-bar-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 6px 1px var(--accent);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px var(--accent);
+  }
+}
+
+/* ── Layout ───────────────────────────────────────── */
+.startup-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.startup-loader-out {
+  animation: startup-fade-out 0.5s ease forwards;
+  pointer-events: none;
+}
+
+.startup-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* ── Spinning logo ────────────────────────────────── */
+.startup-cube {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(14rem, 52vw);
+  height: min(14rem, 52vw);
+  transform-style: preserve-3d;
+  animation: startup-cube-spin 2.8s linear infinite;
+}
+
+.startup-cube-logo {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Terminal panel ───────────────────────────────── */
+.startup-terminal {
+  width: min(30rem, 88vw);
+  padding: 0 0.25rem;
+  font-family: "JetBrains Mono", "Fira Mono", "Courier New", monospace;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.startup-terminal-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  margin-bottom: 0.9rem;
+  min-height: 7.5rem;
+}
+
+.startup-terminal-line {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.startup-terminal-line.startup-line-visible {
+  opacity: 1;
+  animation: startup-line-in 0.18s ease forwards;
+}
+
+.startup-prompt {
+  color: #6ee7b7;
+  flex-shrink: 0;
+  font-size: 0.65rem;
+}
+
+.startup-line-text {
+  color: rgba(200, 230, 210, 0.85);
+  letter-spacing: 0.01em;
+}
+
+.startup-cursor {
+  display: inline-block;
+  width: 0.45em;
+  height: 0.9em;
+  background: #6ee7b7;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: startup-cursor-blink 0.8s step-end infinite;
+  border-radius: 1px;
+}
+
+/* ── Progress bar ─────────────────────────────────── */
+.startup-progress-wrap {
+  height: 4px;
+  background: rgba(110, 231, 183, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.startup-progress-bar {
+  height: 100%;
+  background: #6ee7b7;
+  border-radius: 999px;
+  transition: width 0.06s linear;
+  animation: startup-bar-glow 1.6s ease-in-out infinite;
+}
+
+.startup-progress-label {
+  margin-top: 0.35rem;
+  text-align: right;
+  font-family: "JetBrains Mono", "Fira Mono", monospace;
+  font-size: 0.6rem;
+  color: rgba(110, 231, 183, 0.5);
+  letter-spacing: 0.06em;
+}
+
+/* ── Responsive ───────────────────────────────────── */
+@media (max-width: 760px) {
+  .startup-cube {
+    width: min(10rem, 52vw);
+    height: min(10rem, 52vw);
+  }
+  .startup-terminal {
+    font-size: 0.65rem;
+  }
+}

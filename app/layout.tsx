@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { cookies } from "next/headers";
 import { SidebarPreferenceProvider } from "./components/sidebar-preference-provider";
+import { StartupLoader } from "./components/startup-loader";
 import "./globals.css";
 
 const inter = Inter({
@@ -43,6 +44,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <SidebarPreferenceProvider initialCollapsed={initialCollapsed}>
+          <StartupLoader />
           {children}
         </SidebarPreferenceProvider>
       </body>
