@@ -1,6 +1,28 @@
 "use client";
 
+import { useAppLanguage } from "../lib/app-language";
+
+const I18N = {
+  es: {
+    sysEnv: "SYS_ENV: PRODUCCIÓN",
+    organizer: "ORGANIZER:",
+    sponsor: "SPONSOR:",
+    repo: "REPO:",
+    hackathon: "HACKATON:",
+  },
+  en: {
+    sysEnv: "SYS_ENV: PRODUCTION",
+    organizer: "ORGANIZER:",
+    sponsor: "SPONSOR:",
+    repo: "REPO:",
+    hackathon: "HACKATHON:",
+  },
+} as const;
+
 export function Footer() {
+  const language = useAppLanguage();
+  const t = I18N[language];
+
   return (
     <footer
       className="fixed bottom-0 inset-x-0 z-60 flex flex-col"
@@ -26,19 +48,19 @@ export function Footer() {
         {/* Left — system env + hackathon credits */}
         <div className="flex items-center gap-4">
           <span style={{ color: "var(--primary)", opacity: 0.8 }}>
-            SYS_ENV: PRODUCCIÓN
+            {t.sysEnv}
           </span>
           <span style={{ opacity: 0.2 }}>|</span>
-          <span style={{ opacity: 0.5 }}>ORGANIZER:</span>
+          <span style={{ opacity: 0.5 }}>{t.organizer}</span>
           <span style={{ color: "var(--primary)" }}>MIDUDEV</span>
           <span style={{ opacity: 0.2 }}>|</span>
-          <span style={{ opacity: 0.5 }}>SPONSOR:</span>
+          <span style={{ opacity: 0.5 }}>{t.sponsor}</span>
           <span style={{ color: "var(--primary)" }}>CUBEPATH</span>
         </div>
 
         {/* Right — external links */}
         <div className="flex items-center gap-4">
-          <span style={{ opacity: 0.5 }}>REPO:</span>
+          <span style={{ opacity: 0.5 }}>{t.repo}</span>
           <a
             href="https://github.com/byluisfer/AuditIA"
             target="_blank"
@@ -51,7 +73,7 @@ export function Footer() {
             GITHUB/AUDITIA
           </a>
           <span style={{ opacity: 0.2 }}>|</span>
-          <span style={{ opacity: 0.5 }}>HACKATON:</span>
+          <span style={{ opacity: 0.5 }}>{t.hackathon}</span>
           <a
             href="https://github.com/midudev/hackaton-cubepath-2026"
             target="_blank"

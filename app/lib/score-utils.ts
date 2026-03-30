@@ -5,8 +5,11 @@ export function scoreToColor(score: number | null): string {
   return "#ff4e42";
 }
 
-export function scoreToLabel(score: number): string {
-  if (score >= 90) return "ÓPTIMO";
-  if (score >= 50) return "REGULAR";
-  return "CRÍTICO";
+export function scoreToLabel(
+  score: number,
+  language: "es" | "en" = "es",
+): string {
+  if (score >= 90) return language === "en" ? "OPTIMAL" : "OPTIMO";
+  if (score >= 50) return language === "en" ? "FAIR" : "REGULAR";
+  return language === "en" ? "CRITICAL" : "CRITICO";
 }

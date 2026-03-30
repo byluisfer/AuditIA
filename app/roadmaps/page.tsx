@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Scanlines, Vignette } from "../components/overlays";
 import { Sidebar } from "../components/sidebar";
 import { Footer } from "../components/footer";
+import { useAppLanguage } from "../lib/app-language";
 import {
   updateRoadmap,
   deleteRoadmap,
@@ -39,14 +40,19 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "#0cce6b",
 };
 
-const PRIORITY_LABELS: Record<string, string> = {
-  alta: "Alta",
-  media: "Media",
-  baja: "Baja",
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
+function getPriorityLabel(priority: string, language: "es" | "en") {
+  const normalized = priority.toLowerCase();
+  if (normalized === "alta" || normalized === "high") {
+    return language === "en" ? "High" : "Alta";
+  }
+  if (normalized === "media" || normalized === "medium") {
+    return language === "en" ? "Medium" : "Media";
+  }
+  if (normalized === "baja" || normalized === "low") {
+    return language === "en" ? "Low" : "Baja";
+  }
+  return priority;
+}
 
 const ALL_CATEGORIES = [
   "performance",
@@ -281,6 +287,8 @@ function TerminalLs({
   allRoadmaps: Roadmap[];
   onSelect: (id: string) => void;
 }) {
+  const language = useAppLanguage();
+  const l = (es: string, en: string) => (language === "en" ? en : es);
   const CMD = "ls -la ./roadmaps/";
 
   return (
@@ -333,7 +341,8 @@ function TerminalLs({
             color: "var(--primary)",
           }}
         >
-          {roadmaps.length} ARCHIVO{roadmaps.length !== 1 ? "S" : ""}
+          {roadmaps.length} {l("ARCHIVO", "FILE")}
+          {roadmaps.length !== 1 ? "S" : ""}
         </span>
       </div>
 
@@ -360,12 +369,14 @@ function TerminalLs({
             opacity: 0.6,
           }}
         >
-          <span className="w-24 shrink-0">Fecha</span>
-          <span className="flex-1">Dominio</span>
+          <span className="w-24 shrink-0">{l("Fecha", "Date")}</span>
+          <span className="flex-1">{l("Dominio", "Domain")}</span>
           <span className="hidden md:block w-24 text-center shrink-0">
-            Vistas
+            {l("Vistas", "Views")}
           </span>
-          <span className="w-16 text-right shrink-0">Progreso</span>
+          <span className="w-16 text-right shrink-0">
+            {l("Progreso", "Progress")}
+          </span>
           <span className="w-12 text-right shrink-0">Tasks</span>
         </div>
 
@@ -389,10 +400,13 @@ function TerminalLs({
                   )
                 : null;
             const domain = getDomain(r.url);
-            const date = new Date(r.createdAt).toLocaleDateString("es-ES", {
-              day: "2-digit",
-              month: "short",
-            });
+            const localizedDate = new Date(r.createdAt).toLocaleDateString(
+              language === "en" ? "en-US" : "es-ES",
+              {
+                day: "2-digit",
+                month: "short",
+              },
+            );
 
             return (
               <button
@@ -418,7 +432,7 @@ function TerminalLs({
                   className="text-[10px] w-24 shrink-0"
                   style={{ color: "var(--text-dim)" }}
                 >
-                  {date}
+                  {localizedDate}
                 </span>
 
                 {/* Domain + score badges */}
@@ -446,7 +460,7 @@ function TerminalLs({
                         backgroundColor: `${scoreToColor(avgScore)}0f`,
                       }}
                     >
-                      {avgScore} avg
+                      {avgScore} {l("prom", "avg")}
                     </span>
                   )}
                 </div>
@@ -492,13 +506,17 @@ function TerminalLs({
           className="text-[9px] tracking-[0.12em] uppercase"
           style={{ color: "var(--text-dim)", opacity: 0.6 }}
         >
-          Selecciona un roadmap para continuar
+          {l(
+            "Selecciona un roadmap para continuar",
+            "Select a roadmap to continue",
+          )}
         </span>
         <span
           className="text-[9px]"
           style={{ color: "var(--text-dim)", opacity: 0.4 }}
         >
-          {roadmaps.length} roadmap{roadmaps.length !== 1 ? "s" : ""}
+          {roadmaps.length} {l("roadmap", "roadmap")}
+          {roadmaps.length !== 1 ? "s" : ""}
         </span>
       </div>
     </div>
@@ -507,6 +525,7 @@ function TerminalLs({
 
 // ── Score panel ───────────────────────────────────────────────────────────────
 function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
+  const language = useAppLanguage();
   const scores = getScores(roadmap);
   const activeSet = new Set(
     roadmap.categories.filter((c) => c.steps.length > 0).map((c) => c.category),
@@ -568,7 +587,7 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
                 className="text-[9px] uppercase tracking-wider"
                 style={{ color: hasIssues ? "#ffa400" : "#0cce6b" }}
               >
-                {hasIssues ? "mejoras" : "ok"}
+                {hasIssues ? (language === "en" ? "improve" : "mejoras") : "ok"}
               </span>
             </div>
           </div>
@@ -586,10 +605,18 @@ function CategorySection({
   cat: CategoryRoadmap;
   roadmapId: string;
 }) {
+  const language = useAppLanguage();
+  const l = (es: string, en: string) => (language === "en" ? en : es);
   const [expanded, setExpanded] = useState(true);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const checked = cat.steps.filter((s) => s.checked).length;
   const color = scoreToColor(cat.currentScore);
+  const categoryLabels = {
+    performance: l("Performance", "Performance"),
+    accessibility: l("Accesibilidad", "Accessibility"),
+    seo: "SEO",
+    bestPractices: l("Buenas Practicas", "Best Practices"),
+  } as const;
 
   function toggleStep(stepId: string) {
     updateRoadmap(roadmapId, (r) => ({
@@ -641,7 +668,7 @@ function CategorySection({
           className="text-xs tracking-[0.15em] uppercase font-bold flex-1"
           style={{ color: "var(--text)" }}
         >
-          {CATEGORY_LABELS[cat.category] ?? cat.category}
+          {categoryLabels[cat.category]}
         </span>
         <span className="text-[10px]" style={{ color: "var(--text-dim)" }}>
           {checked}/{cat.steps.length}
@@ -685,8 +712,8 @@ function CategorySection({
                       className="mt-0.5 shrink-0 px-1.5 py-0.5 text-[11px] font-bold tracking-[0.08em] transition-all duration-150"
                       aria-label={
                         step.checked
-                          ? "Marcar como pendiente"
-                          : "Marcar como completado"
+                          ? l("Marcar como pendiente", "Mark as pending")
+                          : l("Marcar como completado", "Mark as completed")
                       }
                       style={{
                         fontFamily: "var(--font-jetbrains-mono), monospace",
@@ -750,7 +777,7 @@ function CategorySection({
                             border: `1px solid ${priorityColor}30`,
                           }}
                         >
-                          {PRIORITY_LABELS[step.priority] ?? step.priority}
+                          {getPriorityLabel(step.priority, language)}
                         </span>
                       </button>
                       <div
@@ -804,6 +831,8 @@ function RoadmapCard({
   selectedRoadmap: Roadmap;
   onBack?: () => void;
 }) {
+  const language = useAppLanguage();
+  const l = (es: string, en: string) => (language === "en" ? en : es);
   const [showConfirm, setShowConfirm] = useState(false);
   const [activeStrategy, setActiveStrategy] = useState<Strategy>(
     normalizeStrategy(selectedRoadmap.strategy),
@@ -830,7 +859,7 @@ function RoadmapCard({
 
   const roadmap = strategyRoadmaps[activeStrategy];
   const selectedDate = new Date(selectedRoadmap.createdAt).toLocaleDateString(
-    "es-ES",
+    language === "en" ? "en-US" : "es-ES",
     {
       day: "2-digit",
       month: "short",
@@ -890,7 +919,7 @@ function RoadmapCard({
             <div
               className="flex items-center gap-1.5 shrink-0"
               role="tablist"
-              aria-label="Vista por dispositivo"
+              aria-label={l("Vista por dispositivo", "Device view")}
             >
               {STRATEGIES.map((device) => {
                 const isActive = activeStrategy === device;
@@ -931,16 +960,19 @@ function RoadmapCard({
               className="text-[11px] tracking-[0.15em] uppercase"
               style={{ color: "#ffa400" }}
             >
-              No existe roadmap para{" "}
+              {l("No existe roadmap para", "No roadmap for")}{" "}
               {activeStrategy === "desktop" ? "Desktop" : "Mobile"}
             </div>
             <p
               className="text-xs leading-relaxed"
               style={{ color: "var(--text-dim)" }}
             >
-              Este dominio ya tiene roadmap en el otro dispositivo. Ejecuta un
-              análisis en {activeStrategy === "desktop" ? "Desktop" : "Mobile"}{" "}
-              para crear su roadmap.
+              {l(
+                "Este dominio ya tiene roadmap en el otro dispositivo. Ejecuta un analisis en",
+                "This domain already has a roadmap for the other device. Run an analysis in",
+              )}{" "}
+              {activeStrategy === "desktop" ? "Desktop" : "Mobile"}{" "}
+              {l("para crear su roadmap.", "to create its roadmap.")}
             </p>
             <Link
               href={analyzeHref}
@@ -951,7 +983,7 @@ function RoadmapCard({
                 width: "fit-content",
               }}
             >
-              &gt; Ejecutar análisis{" "}
+              &gt; {l("Ejecutar analisis", "Run analysis")}{" "}
               {activeStrategy === "desktop" ? "Desktop" : "Mobile"}
             </Link>
           </div>
@@ -972,11 +1004,14 @@ function RoadmapCard({
   const pct =
     totalSteps > 0 ? Math.round((checkedSteps / totalSteps) * 100) : 100;
 
-  const date = new Date(roadmap.createdAt).toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const date = new Date(roadmap.createdAt).toLocaleDateString(
+    language === "en" ? "en-US" : "es-ES",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  );
 
   return (
     <div className="results-fade-in" style={{ position: "relative" }}>
@@ -1026,7 +1061,7 @@ function RoadmapCard({
           <div
             className="flex items-center gap-1.5 shrink-0"
             role="tablist"
-            aria-label="Vista por dispositivo"
+            aria-label={l("Vista por dispositivo", "Device view")}
           >
             {STRATEGIES.map((device) => {
               const isActive = activeStrategy === device;
@@ -1074,7 +1109,7 @@ function RoadmapCard({
               }}
               onClick={() => setShowConfirm(true)}
             >
-              Eliminar
+              {l("Eliminar", "Delete")}
             </button>
           ) : (
             <div className="flex gap-1 shrink-0">
@@ -1087,7 +1122,7 @@ function RoadmapCard({
                 }}
                 onClick={() => deleteRoadmap(roadmap.id)}
               >
-                Confirmar
+                {l("Confirmar", "Confirm")}
               </button>
               <button
                 className="text-[10px] px-2 py-0.5 uppercase tracking-wider"
@@ -1097,7 +1132,7 @@ function RoadmapCard({
                 }}
                 onClick={() => setShowConfirm(false)}
               >
-                Cancelar
+                {l("Cancelar", "Cancel")}
               </button>
             </div>
           )}
@@ -1123,7 +1158,7 @@ function RoadmapCard({
                 className="text-[10px] tracking-[0.15em] uppercase mb-1.5"
                 style={{ color: "var(--text-dim)" }}
               >
-                Progreso del roadmap
+                {l("Progreso del roadmap", "Roadmap progress")}
               </div>
               <ProgressBar checked={checkedSteps} total={totalSteps} />
             </div>
@@ -1149,6 +1184,8 @@ function RoadmapCard({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function RoadmapsPage() {
+  const language = useAppLanguage();
+  const l = (es: string, en: string) => (language === "en" ? en : es);
   const roadmaps = useSyncExternalStore(
     subscribeStorage,
     getSnapshot,
@@ -1204,7 +1241,7 @@ export default function RoadmapsPage() {
             className="text-sm tracking-[0.3em] uppercase font-bold"
             style={{ color: "var(--text)" }}
           >
-            Roadmaps
+            {l("Roadmaps", "Roadmaps")}
           </h1>
           {groupedRoadmaps.length > 0 && (
             <span
@@ -1245,7 +1282,10 @@ export default function RoadmapsPage() {
                   className="text-xs mt-1"
                   style={{ color: "var(--outline)" }}
                 >
-                  No se encontraron roadmaps en este directorio.
+                  {l(
+                    "No se encontraron roadmaps en este directorio.",
+                    "No roadmaps were found in this directory.",
+                  )}
                 </div>
               </div>
               <Link
@@ -1264,7 +1304,7 @@ export default function RoadmapsPage() {
                     "transparent";
                 }}
               >
-                &gt; Ir al análisis
+                &gt; {l("Ir al analisis", "Go to analysis")}
               </Link>
             </div>
           </div>

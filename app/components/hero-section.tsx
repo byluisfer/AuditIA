@@ -5,6 +5,7 @@ import { UrlInput } from "./url-input";
 import type { LighthouseReport } from "../api/analyze/route";
 import { scoreToColor, scoreToLabel } from "../lib/score-utils";
 import { findRoadmapByUrlAndStrategy, saveRoadmap } from "../lib/storage";
+import { useAppLanguage } from "../lib/app-language";
 import type { Roadmap } from "../types/roadmap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -164,6 +165,9 @@ function TerminalLoader({
   errorMsg: string;
   onTransitionDone: () => void;
 }) {
+  const language = useAppLanguage();
+  const isEn = language === "en";
+  const l = (es: string, en: string) => (isEn ? en : es);
   const [visibleCount, setVisibleCount] = useState(0);
   const [finalLine, setFinalLine] = useState<TLine | null>(null);
 
@@ -175,17 +179,65 @@ function TerminalLoader({
   }
 
   const lines: TLine[] = [
-    { text: "Iniciando secuencia de auditoría...", type: "dim" },
-    { text: `Objetivo identificado: ${url}`, type: "highlight" },
-    { text: `Entrando en ${domain}...`, type: "highlight" },
-    { text: "Iniciando motor de Lighthouse...", type: "default" },
-    { text: "Ejecutando diagnósticos de rendimiento...", type: "default" },
-    { text: "Analizando métricas de rendimiento...", type: "default" },
-    { text: "Datos de rendimiento obtenidos.", type: "success" },
-    { text: "Escaneando árbol de accesibilidad...", type: "default" },
-    { text: "Comprobando buenas prácticas...", type: "default" },
-    { text: "Obteniendo señales SEO...", type: "default" },
-    { text: "Compilando informe final...", type: "default" },
+    {
+      text: l(
+        "Iniciando secuencia de auditoria...",
+        "Starting audit sequence...",
+      ),
+      type: "dim",
+    },
+    {
+      text: l(`Objetivo identificado: ${url}`, `Target identified: ${url}`),
+      type: "highlight",
+    },
+    {
+      text: l(`Entrando en ${domain}...`, `Entering ${domain}...`),
+      type: "highlight",
+    },
+    {
+      text: l(
+        "Iniciando motor de Lighthouse...",
+        "Starting Lighthouse engine...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Ejecutando diagnosticos de rendimiento...",
+        "Running performance diagnostics...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Analizando metricas de rendimiento...",
+        "Analyzing performance metrics...",
+      ),
+      type: "default",
+    },
+    {
+      text: l("Datos de rendimiento obtenidos.", "Performance data collected."),
+      type: "success",
+    },
+    {
+      text: l(
+        "Escaneando arbol de accesibilidad...",
+        "Scanning accessibility tree...",
+      ),
+      type: "default",
+    },
+    {
+      text: l("Comprobando buenas practicas...", "Checking best practices..."),
+      type: "default",
+    },
+    {
+      text: l("Obteniendo senales SEO...", "Gathering SEO signals..."),
+      type: "default",
+    },
+    {
+      text: l("Compilando informe final...", "Compiling final report..."),
+      type: "default",
+    },
   ];
 
   useEffect(() => {
@@ -203,9 +255,12 @@ function TerminalLoader({
 
     const fl: TLine =
       apiStatus === "error"
-        ? { text: `Error: ${errorMsg}`, type: "error" }
+        ? { text: `${isEn ? "Error" : "Error"}: ${errorMsg}`, type: "error" }
         : {
-            text: "Análisis completado. Generando informe...",
+            text: l(
+              "Analisis completado. Generando informe...",
+              "Analysis complete. Generating report...",
+            ),
             type: "success",
           };
 
@@ -274,7 +329,7 @@ function TerminalLoader({
               fontFamily: "var(--font-jetbrains-mono), monospace",
             }}
           >
-            AUDITIA · MOTOR DE AUDITORÍA
+            {l("AUDITIA · MOTOR DE AUDITORIA", "AUDITIA - AUDIT ENGINE")}
           </span>
 
           {/* Status badge — no hard blink, smooth pulse only when live */}
@@ -290,7 +345,7 @@ function TerminalLoader({
               color: isRunning ? "var(--primary)" : "#0cce6b",
             }}
           >
-            {isRunning ? "EN VIVO" : "LISTO"}
+            {isRunning ? l("EN VIVO", "LIVE") : l("LISTO", "READY")}
           </span>
         </div>
 
@@ -333,7 +388,7 @@ function TerminalLoader({
                 style={{ color: "var(--text-dim)", letterSpacing: "0.05em" }}
               >
                 AUDITIA v1.0.0{"  "}·{"  "}Google Lighthouse{"  "}·{"  "}
-                MODO {strategy.toUpperCase()}
+                {isEn ? "MODE" : "MODO"} {strategy.toUpperCase()}
               </div>
               {/* Actual shell command */}
               <div
@@ -436,10 +491,10 @@ function TerminalLoader({
               }}
             >
               {apiStatus === "error"
-                ? "ESTADO: ERROR"
+                ? l("ESTADO: ERROR", "STATUS: ERROR")
                 : isRunning
-                  ? "ESTADO: EJECUTANDO"
-                  : "ESTADO: COMPLETO"}
+                  ? l("ESTADO: EJECUTANDO", "STATUS: RUNNING")
+                  : l("ESTADO: COMPLETO", "STATUS: COMPLETE")}
             </span>
             {isRunning && (
               <span
@@ -450,7 +505,7 @@ function TerminalLoader({
                   opacity: 0.5,
                 }}
               >
-                est. ~60seg
+                {isEn ? "est. ~60s" : "est. ~60seg"}
               </span>
             )}
           </div>
@@ -471,17 +526,6 @@ function TerminalLoader({
 }
 
 // ── Roadmap Loader ───────────────────────────────────────────────────────────
-const ROADMAP_LINES: TLine[] = [
-  { text: "Iniciando generación de roadmap...", type: "dim" },
-  { text: "Conectando con motor de IA...", type: "highlight" },
-  { text: "Enviando informe Lighthouse al modelo...", type: "default" },
-  { text: "Analizando oportunidades de rendimiento...", type: "default" },
-  { text: "Evaluando accesibilidad y SEO...", type: "default" },
-  { text: "Priorizando acciones por impacto...", type: "default" },
-  { text: "Generando pasos y soluciones...", type: "default" },
-  { text: "Construyendo checklist de mejoras...", type: "default" },
-];
-
 const ROADMAP_TIMINGS = [300, 1200, 2500, 5000, 8000, 12000, 16000, 20000];
 const ROADMAP_STAMPS = ROADMAP_TIMINGS.map((ms) => {
   const s = ms / 1000;
@@ -497,6 +541,9 @@ function RoadmapLoader({
   status: "loading" | "error" | "done";
   errorMsg: string;
 }) {
+  const language = useAppLanguage();
+  const isEn = language === "en";
+  const l = (es: string, en: string) => (isEn ? en : es);
   const [visibleCount, setVisibleCount] = useState(0);
   const [finalLine, setFinalLine] = useState<TLine | null>(null);
 
@@ -507,23 +554,82 @@ function RoadmapLoader({
     /* keep raw */
   }
 
+  const roadmapLines: TLine[] = [
+    {
+      text: l(
+        "Iniciando generacion de roadmap...",
+        "Starting roadmap generation...",
+      ),
+      type: "dim",
+    },
+    {
+      text: l("Conectando con motor de IA...", "Connecting to AI engine..."),
+      type: "highlight",
+    },
+    {
+      text: l(
+        "Enviando informe Lighthouse al modelo...",
+        "Sending Lighthouse report to model...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Analizando oportunidades de rendimiento...",
+        "Analyzing performance opportunities...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Evaluando accesibilidad y SEO...",
+        "Evaluating accessibility and SEO...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Priorizando acciones por impacto...",
+        "Prioritizing actions by impact...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Generando pasos y soluciones...",
+        "Generating steps and solutions...",
+      ),
+      type: "default",
+    },
+    {
+      text: l(
+        "Construyendo checklist de mejoras...",
+        "Building improvement checklist...",
+      ),
+      type: "default",
+    },
+  ];
+
   useEffect(() => {
-    const timers = ROADMAP_LINES.map((_, i) =>
+    const timers = roadmapLines.map((_, i) =>
       setTimeout(() => setVisibleCount(i + 1), ROADMAP_TIMINGS[i]),
     );
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [roadmapLines]);
 
   useEffect(() => {
     if (status === "loading") return;
 
-    setVisibleCount(ROADMAP_LINES.length);
+    setVisibleCount(roadmapLines.length);
 
     const fl: TLine =
       status === "error"
-        ? { text: `Error: ${errorMsg}`, type: "error" }
+        ? { text: `${isEn ? "Error" : "Error"}: ${errorMsg}`, type: "error" }
         : {
-            text: "Roadmap generado con éxito. Redirigiendo...",
+            text: l(
+              "Roadmap generado con exito. Redirigiendo...",
+              "Roadmap generated successfully. Redirecting...",
+            ),
             type: "success",
           };
 
@@ -533,7 +639,7 @@ function RoadmapLoader({
   }, [status]);
 
   const displayLines = [
-    ...ROADMAP_LINES.slice(0, visibleCount),
+    ...roadmapLines.slice(0, visibleCount),
     ...(finalLine ? [finalLine] : []),
   ];
   const isRunning = status === "loading";
@@ -585,7 +691,7 @@ function RoadmapLoader({
               fontFamily: "var(--font-jetbrains-mono), monospace",
             }}
           >
-            AUDITIA · GENERADOR DE ROADMAP
+            {l("AUDITIA · GENERADOR DE ROADMAP", "AUDITIA - ROADMAP GENERATOR")}
           </span>
 
           <span
@@ -604,7 +710,11 @@ function RoadmapLoader({
                   : "#0cce6b",
             }}
           >
-            {isRunning ? "PROCESANDO" : status === "error" ? "ERROR" : "LISTO"}
+            {isRunning
+              ? l("PROCESANDO", "PROCESSING")
+              : status === "error"
+                ? "ERROR"
+                : l("LISTO", "READY")}
           </span>
         </div>
 
@@ -645,7 +755,9 @@ function RoadmapLoader({
                 className="text-xs mb-3"
                 style={{ color: "var(--text-dim)", letterSpacing: "0.05em" }}
               >
-                AUDITIA v1.0.0{"  "}·{"  "}Roadmap IA{"  "}·{"  "}OpenRouter
+                AUDITIA v1.0.0{"  "}·{"  "}
+                {l("Roadmap IA", "AI Roadmap")}
+                {"  "}·{"  "}OpenRouter
               </div>
               <div
                 className="text-xs flex flex-wrap items-baseline gap-1"
@@ -663,7 +775,7 @@ function RoadmapLoader({
             <div className="flex flex-col gap-2.5">
               {displayLines.map((line, i) => {
                 const isLast = i === displayLines.length - 1;
-                const hasStamp = i < ROADMAP_LINES.length;
+                const hasStamp = i < roadmapLines.length;
                 const isFinalLine =
                   finalLine !== null && i === displayLines.length - 1;
                 const stamp = hasStamp ? ROADMAP_STAMPS[i] : null;
@@ -744,10 +856,10 @@ function RoadmapLoader({
               }}
             >
               {status === "error"
-                ? "ESTADO: ERROR"
+                ? l("ESTADO: ERROR", "STATUS: ERROR")
                 : isRunning
-                  ? "ESTADO: GENERANDO"
-                  : "ESTADO: COMPLETO"}
+                  ? l("ESTADO: GENERANDO", "STATUS: GENERATING")
+                  : l("ESTADO: COMPLETO", "STATUS: COMPLETE")}
             </span>
             {isRunning && (
               <span
@@ -758,7 +870,10 @@ function RoadmapLoader({
                   opacity: 0.5,
                 }}
               >
-                Esperando respuesta del modelo...
+                {l(
+                  "Esperando respuesta del modelo...",
+                  "Waiting model response...",
+                )}
               </span>
             )}
           </div>
@@ -780,6 +895,7 @@ function RoadmapLoader({
 
 // ── Score Gauge ───────────────────────────────────────────────────────────────
 function ScoreGauge({ score, label }: { score: number; label: string }) {
+  const language = useAppLanguage();
   const color = scoreToColor(score);
   const r = 40;
   const circ = 2 * Math.PI * r;
@@ -818,7 +934,7 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
         <span
           className="absolute inset-0 flex items-center justify-center text-2xl font-black"
           style={{ color, fontFamily: "var(--font-space-grotesk), sans-serif" }}
-          aria-label={`${label}: ${score} de 100`}
+          aria-label={`${label}: ${score} ${language === "en" ? "of" : "de"} 100`}
         >
           {score}
         </span>
@@ -836,7 +952,7 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
         className="text-[10px] tracking-widest font-bold"
         style={{ color, fontFamily: "var(--font-jetbrains-mono), monospace" }}
       >
-        {scoreToLabel(score)}
+        {scoreToLabel(score, language)}
       </span>
     </div>
   );
@@ -844,6 +960,9 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
 
 // ── HeroSection ───────────────────────────────────────────────────────────────
 export function HeroSection() {
+  const language = useAppLanguage();
+  const isEn = language === "en";
+  const l = (es: string, en: string) => (isEn ? en : es);
   const [url, setUrl] = useState("");
   const [strategy, setStrategy] = useState<Strategy>("desktop");
   const [apiStatus, setApiStatus] = useState<ApiStatus>("idle");
@@ -879,12 +998,12 @@ export function HeroSection() {
       const res = await fetch("/api/roadmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reportData),
+        body: JSON.stringify({ report: reportData, language }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setRoadmapError(data?.error ?? "Error desconocido");
+        setRoadmapError(data?.error ?? l("Error desconocido", "Unknown error"));
         setRoadmapStatus("error");
         return;
       }
@@ -918,7 +1037,11 @@ export function HeroSection() {
       setRoadmapStatus("done");
       setTimeout(() => router.push(`/roadmaps?id=${roadmapId}`), 1800);
     } catch (err) {
-      setRoadmapError(err instanceof Error ? err.message : "Error desconocido");
+      setRoadmapError(
+        err instanceof Error
+          ? err.message
+          : l("Error desconocido", "Unknown error"),
+      );
       setRoadmapStatus("error");
     }
   }
@@ -946,7 +1069,7 @@ export function HeroSection() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMessage(data?.error ?? "Error desconocido");
+        setErrorMessage(data?.error ?? l("Error desconocido", "Unknown error"));
         setApiStatus("error");
         return;
       }
@@ -972,7 +1095,11 @@ export function HeroSection() {
       }
       setApiStatus("done");
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Error desconocido");
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : l("Error desconocido", "Unknown error"),
+      );
       setPostAnalyzeAction(null);
       setApiStatus("error");
     }
@@ -1098,7 +1225,7 @@ export function HeroSection() {
                   color: "#0cce6b",
                 }}
               >
-                LISTO
+                {l("LISTO", "READY")}
               </span>
             </div>
 
@@ -1109,7 +1236,7 @@ export function HeroSection() {
               <div
                 className="flex gap-2 mb-6"
                 role="group"
-                aria-label="Estrategia de análisis"
+                aria-label={l("Estrategia de analisis", "Analysis strategy")}
               >
                 {(["desktop", "mobile"] as Strategy[]).map((opt) => {
                   const isActive = strategy === opt;
@@ -1136,7 +1263,9 @@ export function HeroSection() {
                       }}
                     >
                       {opt === "mobile" ? <MobileIcon /> : <DesktopIcon />}
-                      {opt === "mobile" ? "Móvil" : "Escritorio"}
+                      {opt === "mobile"
+                        ? l("Movil", "Mobile")
+                        : l("Escritorio", "Desktop")}
                     </button>
                   );
                 })}
@@ -1163,7 +1292,7 @@ export function HeroSection() {
                 onClick={handleAnalyze}
                 disabled={!url.trim()}
               >
-                &gt; Analizar sitio web
+                &gt; {l("Analizar sitio web", "Analyze website")}
               </button>
             </div>
           </div>
@@ -1211,9 +1340,12 @@ export function HeroSection() {
                 <>
                   {" "}
                   ·{" "}
-                  {new Date(report.fetchTime).toLocaleTimeString("es-ES", {
-                    hour12: false,
-                  })}
+                  {new Date(report.fetchTime).toLocaleTimeString(
+                    isEn ? "en-US" : "es-ES",
+                    {
+                      hour12: false,
+                    },
+                  )}
                 </>
               )}
             </div>
@@ -1235,7 +1367,7 @@ export function HeroSection() {
               }}
               onClick={handleReset}
             >
-              ↩ Nuevo análisis
+              ↩ {l("Nuevo analisis", "New analysis")}
             </button>
           </div>
 
@@ -1279,7 +1411,7 @@ export function HeroSection() {
                     color: "#0cce6b",
                   }}
                 >
-                  COMPLETO
+                  {l("COMPLETO", "COMPLETE")}
                 </span>
               </div>
 
@@ -1288,15 +1420,15 @@ export function HeroSection() {
                 {[
                   {
                     score: report.categories.performance.score,
-                    label: "Rendimiento",
+                    label: l("Rendimiento", "Performance"),
                   },
                   {
                     score: report.categories.accessibility.score,
-                    label: "Accesibilidad",
+                    label: l("Accesibilidad", "Accessibility"),
                   },
                   {
                     score: report.categories.bestPractices.score,
-                    label: "Buenas Prácticas",
+                    label: l("Buenas Practicas", "Best Practices"),
                   },
                   { score: report.categories.seo.score, label: "SEO" },
                 ].map(({ score, label }, i, arr) => (
@@ -1339,7 +1471,7 @@ export function HeroSection() {
                           opacity: 0.5,
                         }}
                       >
-                        Puntuación global
+                        {l("Puntuacion global", "Overall score")}
                       </span>
                       <div
                         className="flex-1 h-px"
@@ -1362,7 +1494,7 @@ export function HeroSection() {
                           fontFamily: "var(--font-jetbrains-mono), monospace",
                         }}
                       >
-                        {scoreToLabel(avg)}
+                        {scoreToLabel(avg, language)}
                       </span>
                     </>
                   );
@@ -1414,7 +1546,9 @@ export function HeroSection() {
                           color: alreadyExists ? "#0cce6b" : "var(--primary)",
                         }}
                       >
-                        {alreadyExists ? "Roadmap activo" : "Siguiente paso"}
+                        {alreadyExists
+                          ? l("Roadmap activo", "Active roadmap")
+                          : l("Siguiente paso", "Next step")}
                       </span>
                     </div>
                     {existingRoadmap && (
@@ -1428,7 +1562,7 @@ export function HeroSection() {
                           color: "#0cce6b",
                         }}
                       >
-                        EXISTENTE
+                        {l("EXISTENTE", "EXISTING")}
                       </span>
                     )}
                   </div>
@@ -1463,7 +1597,10 @@ export function HeroSection() {
                                       "var(--font-jetbrains-mono), monospace",
                                   }}
                                 >
-                                  Progreso del roadmap
+                                  {l(
+                                    "Progreso del roadmap",
+                                    "Roadmap progress",
+                                  )}
                                 </span>
                                 <span
                                   className="text-xs font-bold"
@@ -1474,7 +1611,8 @@ export function HeroSection() {
                                       "var(--font-jetbrains-mono), monospace",
                                   }}
                                 >
-                                  {doneSteps}/{totalSteps} pasos · {pct}%
+                                  {doneSteps}/{totalSteps} {l("pasos", "steps")}{" "}
+                                  · {pct}%
                                 </span>
                               </div>
                               <div
@@ -1522,10 +1660,10 @@ export function HeroSection() {
                             opacity: 0.5,
                           }}
                         >
-                          Creado el{" "}
+                          {l("Creado el", "Created on")}{" "}
                           {new Date(
                             existingRoadmap.createdAt,
-                          ).toLocaleDateString("es-ES", {
+                          ).toLocaleDateString(isEn ? "en-US" : "es-ES", {
                             day: "numeric",
                             month: "short",
                             year: "numeric",
@@ -1550,7 +1688,7 @@ export function HeroSection() {
                             (e.currentTarget.style.filter = "")
                           }
                         >
-                          &gt; Continuar roadmap
+                          &gt; {l("Continuar roadmap", "Continue roadmap")}
                         </button>
                       </>
                     ) : (
@@ -1564,7 +1702,10 @@ export function HeroSection() {
                                 "var(--font-jetbrains-mono), monospace",
                             }}
                           >
-                            Genera un roadmap con IA
+                            {l(
+                              "Genera un roadmap con IA",
+                              "Generate an AI roadmap",
+                            )}
                           </div>
                           <div
                             className="text-xs leading-relaxed"
@@ -1574,9 +1715,10 @@ export function HeroSection() {
                                 "var(--font-jetbrains-mono), monospace",
                             }}
                           >
-                            Convierte los errores de Lighthouse en un plan de
-                            acción priorizado para alcanzar 100 en las 4
-                            categorías.
+                            {l(
+                              "Convierte los errores de Lighthouse en un plan de accion priorizado para alcanzar 100 en las 4 categorias.",
+                              "Turn Lighthouse issues into a prioritized action plan to reach 100 in all 4 categories.",
+                            )}
                           </div>
                         </div>
 
@@ -1610,7 +1752,10 @@ export function HeroSection() {
                           {roadmapStatus === "loading" ? (
                             <>
                               <span className="terminal-pulse">&gt;</span>
-                              Generando roadmap...
+                              {l(
+                                "Generando roadmap...",
+                                "Generating roadmap...",
+                              )}
                             </>
                           ) : (
                             <>
@@ -1633,7 +1778,7 @@ export function HeroSection() {
                                   d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
                                 />
                               </svg>
-                              &gt; Generar roadmap
+                              &gt; {l("Generar roadmap", "Generate roadmap")}
                             </>
                           )}
                         </button>
@@ -1649,7 +1794,7 @@ export function HeroSection() {
                           border: "1px solid rgba(255,78,66,0.2)",
                         }}
                       >
-                        Error: {roadmapError}
+                        {l("Error", "Error")}: {roadmapError}
                       </div>
                     )}
                   </div>

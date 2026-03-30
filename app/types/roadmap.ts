@@ -2,7 +2,7 @@ export type ChecklistItem = {
   id: string;
   title: string;
   description: string;
-  priority: "alta" | "media" | "baja";
+  priority: "alta" | "media" | "baja" | "high" | "medium" | "low";
   estimatedImpact: string;
   checked: boolean;
 };

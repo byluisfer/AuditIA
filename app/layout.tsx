@@ -33,10 +33,16 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const initialCollapsed =
     cookieStore.get("sidebar-collapsed")?.value === "true";
+  const rawTheme = cookieStore.get("auditia-theme")?.value;
+  const initialTheme =
+    rawTheme === "light" || rawTheme === "dark" ? rawTheme : undefined;
+  const rawLanguage = cookieStore.get("auditia-lang")?.value;
+  const initialLanguage = rawLanguage === "en" ? "en" : "es";
 
   return (
     <html
-      lang="es"
+      lang={initialLanguage}
+      data-theme={initialTheme}
       className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} h-full antialiased`}
       style={{
         ["--sidebar-w" as string]: initialCollapsed ? "3.5rem" : "15rem",

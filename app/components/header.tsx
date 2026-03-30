@@ -1,25 +1,31 @@
 "use client";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useAppLanguage } from "../lib/app-language";
 
-const ROUTE_LABELS: Record<string, string> = {
-  "/": "dashboard",
-  "/roadmaps": "roadmaps",
+const ROUTE_LABELS: Record<string, { es: string; en: string }> = {
+  "/": { es: "dashboard", en: "dashboard" },
+  "/roadmaps": { es: "roadmaps", en: "roadmaps" },
 };
 
 export function Header() {
   const [time, setTime] = useState("");
+  const language = useAppLanguage();
   const pathname = usePathname();
-  const page = ROUTE_LABELS[pathname] ?? pathname.replace("/", "");
+  const page = ROUTE_LABELS[pathname]?.[language] ?? pathname.replace("/", "");
 
   useEffect(() => {
     function tick() {
-      setTime(new Date().toLocaleTimeString("es-ES", { hour12: false }));
+      setTime(
+        new Date().toLocaleTimeString(language === "en" ? "en-US" : "es-ES", {
+          hour12: false,
+        }),
+      );
     }
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [language]);
 
   return (
     <header
@@ -70,7 +76,7 @@ export function Header() {
               boxShadow: "0 0 6px #0cce6b",
             }}
           />
-          <span>ONLINE</span>
+          <span>{language === "en" ? "ONLINE" : "EN LINEA"}</span>
         </div>
         <span style={{ opacity: 0.2 }}>|</span>
         <div

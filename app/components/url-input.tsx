@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useAppLanguage } from "../lib/app-language";
 
 type Props = {
   value: string;
@@ -11,6 +12,7 @@ type Props = {
 export function UrlInput({ value: url, onChange, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
+  const language = useAppLanguage();
 
   const showCursor = focused || url.length > 0;
 
@@ -48,7 +50,9 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
                 />
               )}
               <span style={{ color: "var(--text-dim)" }}>
-                https://tu-web.com
+                {language === "en"
+                  ? "https://your-site.com"
+                  : "https://tu-web.com"}
               </span>
             </>
           )}

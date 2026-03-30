@@ -1,21 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAppLanguage } from "../lib/app-language";
 
 const MIN_VISIBLE_MS = 3500;
 const MAX_VISIBLE_MS = 6000;
 
-const BOOT_LINES = [
-  { delay: 200, text: "Initializing AuditIA runtime..." },
-  { delay: 600, text: "Loading audit engine v2.4.1" },
-  { delay: 1000, text: "Connecting to knowledge base..." },
-  { delay: 1500, text: "Mounting regulatory frameworks [OK]" },
-  { delay: 2000, text: "Validating security modules... [OK]" },
-  { delay: 2500, text: "Starting AI inference layer..." },
-  { delay: 3000, text: "System ready." },
-];
+const BOOT_LINES = {
+  es: [
+    { delay: 200, text: "Iniciando runtime de AuditIA..." },
+    { delay: 600, text: "Cargando motor de auditoria v2.4.1" },
+    { delay: 1000, text: "Conectando con base de conocimiento..." },
+    { delay: 1500, text: "Montando marcos regulatorios [OK]" },
+    { delay: 2000, text: "Validando modulos de seguridad... [OK]" },
+    { delay: 2500, text: "Iniciando capa de inferencia IA..." },
+    { delay: 3000, text: "Sistema listo." },
+  ],
+  en: [
+    { delay: 200, text: "Initializing AuditIA runtime..." },
+    { delay: 600, text: "Loading audit engine v2.4.1" },
+    { delay: 1000, text: "Connecting to knowledge base..." },
+    { delay: 1500, text: "Mounting regulatory frameworks [OK]" },
+    { delay: 2000, text: "Validating security modules... [OK]" },
+    { delay: 2500, text: "Starting AI inference layer..." },
+    { delay: 3000, text: "System ready." },
+  ],
+} as const;
 
 export function StartupLoader() {
+  const language = useAppLanguage();
+  const bootLines = BOOT_LINES[language];
   const [visible, setVisible] = useState(true);
   const [fadingOut, setFadingOut] = useState(false);
   const [ready, setReady] = useState(false);
@@ -43,13 +57,13 @@ export function StartupLoader() {
 
   // Reveal boot lines one by one
   useEffect(() => {
-    const timers = BOOT_LINES.map((line, i) =>
+    const timers = bootLines.map((line, i) =>
       window.setTimeout(() => {
         setVisibleLines((prev) => [...prev, i]);
       }, line.delay),
     );
     return () => timers.forEach(window.clearTimeout);
-  }, []);
+  }, [bootLines]);
 
   // Page ready detection
   useEffect(() => {
@@ -98,7 +112,7 @@ export function StartupLoader() {
   return (
     <div
       className={`startup-loader ${fadingOut ? "startup-loader-out" : ""}`}
-      aria-label="Loading AuditIA"
+      aria-label={language === "en" ? "Loading AuditIA" : "Cargando AuditIA"}
     >
       <div className="startup-inner">
         {/* Spinning logo */}
@@ -113,7 +127,7 @@ export function StartupLoader() {
         {/* Terminal panel */}
         <div className="startup-terminal" aria-live="polite">
           <div className="startup-terminal-lines">
-            {BOOT_LINES.map((line, i) => (
+            {bootLines.map((line, i) => (
               <div
                 key={i}
                 className={`startup-terminal-line ${visibleLines.includes(i) ? "startup-line-visible" : ""}`}
