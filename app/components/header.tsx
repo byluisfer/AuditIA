@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 const ROUTE_LABELS: Record<string, string> = {
   "/": "dashboard",
   "/roadmaps": "roadmaps",
-  "/analytics": "analytics",
 };
 
 export function Header() {

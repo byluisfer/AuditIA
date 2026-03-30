@@ -52,26 +52,6 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  {
-    id: "analytics",
-    href: "/analytics",
-    label: "Estadísticas",
-    icon: (
-      <svg
-        className="w-4 h-4 shrink-0"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        strokeWidth={1.75}
-      >
-        <path
-          strokeLinecap="square"
-          strokeLinejoin="miter"
-          d="M4 20h16M4 20V10l6-4 4 4 6-6"
-        />
-      </svg>
-    ),
-  },
 ];
 
 const EXPANDED_W = "15rem";
