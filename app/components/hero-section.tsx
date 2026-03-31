@@ -241,17 +241,16 @@ function TerminalLoader({
   ];
 
   useEffect(() => {
-    const timers = lines.map((_, i) =>
+    const timers = LINE_TIMINGS.map((_, i) =>
       setTimeout(() => setVisibleCount(i + 1), LINE_TIMINGS[i]),
     );
     return () => timers.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (apiStatus !== "done" && apiStatus !== "error") return;
 
-    setVisibleCount(lines.length);
+    setVisibleCount(LINE_TIMINGS.length);
 
     const fl: TLine =
       apiStatus === "error"
@@ -611,11 +610,12 @@ function RoadmapLoader({
   ];
 
   useEffect(() => {
-    const timers = roadmapLines.map((_, i) =>
+    const timers = ROADMAP_TIMINGS.map((_, i) =>
       setTimeout(() => setVisibleCount(i + 1), ROADMAP_TIMINGS[i]),
     );
     return () => timers.forEach(clearTimeout);
-  }, [roadmapLines]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (status === "loading") return;
