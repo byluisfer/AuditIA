@@ -61,11 +61,19 @@ export function findRoadmapByUrl(url: string): Roadmap | undefined {
 export function findRoadmapByUrlAndStrategy(
   url: string,
   strategy: Strategy,
+  language?: "es" | "en",
 ): Roadmap | undefined {
   const normalizedTarget = normalizeRoadmapUrl(url);
-  return getRoadmaps().find((item) =>
-    roadmapMatchesTarget(item, normalizedTarget, strategy),
-  );
+  return getRoadmaps().find((item) => {
+    if (!roadmapMatchesTarget(item, normalizedTarget, strategy)) return false;
+    // If language is specified, only reuse roadmaps generated in the same language.
+    // Roadmaps without a stored language are treated as Spanish (legacy default).
+    if (language) {
+      const itemLang = item.language ?? "es";
+      if (itemLang !== language) return false;
+    }
+    return true;
+  });
 }
 
 export function saveRoadmap(roadmap: Roadmap): string {

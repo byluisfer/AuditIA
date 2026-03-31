@@ -1138,6 +1138,45 @@ function RoadmapCard({
           )}
         </div>
 
+        {/* Language mismatch banner */}
+        {(roadmap.language ?? "es") !== language && (
+          <div
+            className="flex items-center gap-3 px-6 py-3 flex-wrap"
+            style={{
+              borderBottom: "1px solid rgba(255,164,0,0.2)",
+              backgroundColor: "rgba(255,164,0,0.06)",
+            }}
+          >
+            <span
+              className="text-[10px] leading-relaxed flex-1"
+              style={{ color: "#ffa400" }}
+            >
+              {l(
+                "Este roadmap fue generado en inglés. Regeneralo para verlo en español.",
+                "This roadmap was generated in Spanish. Regenerate it to view it in English.",
+              )}
+            </span>
+            <Link
+              href={`/?url=${encodeURIComponent(roadmap.url)}&strategy=${roadmap.strategy}&autorun=1&autogenerate=1`}
+              className="text-[10px] px-3 py-1 uppercase tracking-wider font-bold shrink-0 transition-colors"
+              style={{
+                color: "#ffa400",
+                border: "1px solid rgba(255,164,0,0.4)",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                  "rgba(255,164,0,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                  "transparent";
+              }}
+            >
+              &gt; {l("Regenerar", "Regenerate")}
+            </Link>
+          </div>
+        )}
+
         {/* Score panel — all 4 categories */}
         <ScorePanel roadmap={roadmap} />
 

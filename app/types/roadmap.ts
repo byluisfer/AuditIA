@@ -19,6 +19,7 @@ export type Roadmap = {
   id: string;
   url: string;
   strategy: "desktop" | "mobile";
+  language?: "es" | "en";
   createdAt: string;
   summary: string;
   categories: CategoryRoadmap[];

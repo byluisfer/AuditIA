@@ -984,6 +984,7 @@ export function HeroSection() {
     const existing = findRoadmapByUrlAndStrategy(
       reportData.url,
       reportData.strategy,
+      language,
     );
     if (existing) {
       router.push(`/roadmaps?id=${existing.id}`);
@@ -1022,6 +1023,7 @@ export function HeroSection() {
         id: crypto.randomUUID(),
         url: reportData.url,
         strategy: reportData.strategy,
+        language,
         createdAt: new Date().toISOString(),
         summary: data.summary,
         categories,
