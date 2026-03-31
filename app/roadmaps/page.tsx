@@ -1,5 +1,11 @@
 "use client";
-import { useState, useSyncExternalStore, useEffect, useMemo, useRef } from "react";
+import {
+  useState,
+  useSyncExternalStore,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -17,9 +23,26 @@ import type { Roadmap, CategoryRoadmap } from "../types/roadmap";
 import type { LighthouseReport } from "../api/analyze/route";
 
 function fireConfetti() {
-  void confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ["#0cce6b", "#6bff8f", "#00ff55", "#ffffff"] });
-  void confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0 }, colors: ["#0cce6b", "#6bff8f"] });
-  void confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1 }, colors: ["#0cce6b", "#6bff8f"] });
+  void confetti({
+    particleCount: 120,
+    spread: 70,
+    origin: { y: 0.6 },
+    colors: ["#0cce6b", "#6bff8f", "#00ff55", "#ffffff"],
+  });
+  void confetti({
+    particleCount: 60,
+    angle: 60,
+    spread: 55,
+    origin: { x: 0 },
+    colors: ["#0cce6b", "#6bff8f"],
+  });
+  void confetti({
+    particleCount: 60,
+    angle: 120,
+    spread: 55,
+    origin: { x: 1 },
+    colors: ["#0cce6b", "#6bff8f"],
+  });
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -320,7 +343,11 @@ function TerminalLs({
           backgroundColor: "var(--surface-high)",
         }}
       >
-        <img src="/AuditIA.svg" alt="AuditIA" style={{ width: 20, height: 20, flexShrink: 0 }} />
+        <img
+          src="/AuditIA.svg"
+          alt="AuditIA"
+          style={{ width: 20, height: 20, flexShrink: 0 }}
+        />
         <span
           className="flex-1 text-center text-[10px] tracking-[0.25em] uppercase"
           style={{ color: "var(--text-dim)" }}
@@ -372,7 +399,9 @@ function TerminalLs({
           <span className="w-16 text-right shrink-0">
             {l("Progreso", "Progress")}
           </span>
-          <span className="hidden sm:block w-12 text-right shrink-0">Tasks</span>
+          <span className="hidden sm:block w-12 text-right shrink-0">
+            Tasks
+          </span>
         </div>
 
         {/* Roadmap entries */}
@@ -532,18 +561,32 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
     confettiFiredRef.current = false;
   }, [roadmap.id]);
   useEffect(() => {
-    const allPerfect = ALL_CATEGORIES.every((cat) => (scores[cat] ?? 0) === 100);
+    const allPerfect = ALL_CATEGORIES.every(
+      (cat) => (scores[cat] ?? 0) === 100,
+    );
     if (allPerfect && !confettiFiredRef.current) {
       confettiFiredRef.current = true;
       const end = Date.now() + 2800;
       const burst = () => {
-        confetti({ particleCount: 7, angle: 60, spread: 60, origin: { x: 0 }, colors: ["#6bff8f", "#0cce6b", "#ffa400", "#fff"] });
-        confetti({ particleCount: 7, angle: 120, spread: 60, origin: { x: 1 }, colors: ["#6bff8f", "#0cce6b", "#ffa400", "#fff"] });
+        confetti({
+          particleCount: 7,
+          angle: 60,
+          spread: 60,
+          origin: { x: 0 },
+          colors: ["#6bff8f", "#0cce6b", "#ffa400", "#fff"],
+        });
+        confetti({
+          particleCount: 7,
+          angle: 120,
+          spread: 60,
+          origin: { x: 1 },
+          colors: ["#6bff8f", "#0cce6b", "#ffa400", "#fff"],
+        });
         if (Date.now() < end) requestAnimationFrame(burst);
       };
       burst();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roadmap.id]);
 
   return (
@@ -567,7 +610,9 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
           "sm:border-r-0",
         ][i];
 
-        const prevScore = (roadmap.previousScores as Record<string, number> | undefined)?.[cat];
+        const prevScore = (
+          roadmap.previousScores as Record<string, number> | undefined
+        )?.[cat];
         const delta = prevScore !== undefined ? score - prevScore : null;
 
         return (
@@ -599,11 +644,19 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
                 style={{ color: delta > 0 ? "#0cce6b" : "#ff4e42" }}
               >
                 {delta > 0 ? (
-                  <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="currentColor">
+                  <svg
+                    className="w-2.5 h-2.5"
+                    viewBox="0 0 10 10"
+                    fill="currentColor"
+                  >
                     <path d="M5 1l4 6H1z" />
                   </svg>
                 ) : (
-                  <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="currentColor">
+                  <svg
+                    className="w-2.5 h-2.5"
+                    viewBox="0 0 10 10"
+                    fill="currentColor"
+                  >
                     <path d="M5 9L1 3h8z" />
                   </svg>
                 )}
@@ -660,7 +713,7 @@ function CategorySection({
     const step = cat.steps.find((s) => s.id === stepId);
     // Prevent unchecking if step is fixed (score reached 100%)
     if (step?.fixedAt && step.checked) return;
-    
+
     updateRoadmap(roadmapId, (r) => ({
       ...r,
       categories: r.categories.map((c) =>
@@ -767,14 +820,17 @@ function CategorySection({
                           ? "rgba(12,206,107,0.45)"
                           : "var(--outline)",
                         backgroundColor: step.checked
-                          ? step.fixedAt 
+                          ? step.fixedAt
                             ? "rgba(12,206,107,0.15)"
                             : "rgba(12,206,107,0.08)"
                           : "transparent",
                         boxShadow: step.checked
                           ? "0 0 10px rgba(12,206,107,0.28)"
                           : "none",
-                        cursor: step.fixedAt && step.checked ? "not-allowed" : "pointer",
+                        cursor:
+                          step.fixedAt && step.checked
+                            ? "not-allowed"
+                            : "pointer",
                         opacity: step.fixedAt && step.checked ? 0.8 : 1,
                       }}
                       onClick={() => toggleStep(step.id)}
@@ -796,7 +852,11 @@ function CategorySection({
                         }
                       }}
                     >
-                      {step.checked && step.fixedAt ? "✓" : step.checked ? "[X]" : "[ ]"}
+                      {step.checked && step.fixedAt
+                        ? "✓"
+                        : step.checked
+                          ? "[X]"
+                          : "[ ]"}
                     </button>
 
                     {/* Title + priority + impact */}
@@ -930,13 +990,17 @@ function RoadmapCard({
 
   // Auto-open completion prompt when every step is checked
   useEffect(() => {
-    if (_totalSteps > 0 && _checkedSteps === _totalSteps && modalState === "idle") {
+    if (
+      _totalSteps > 0 &&
+      _checkedSteps === _totalSteps &&
+      modalState === "idle"
+    ) {
       setModalState("prompt");
     }
     if (_checkedSteps < _totalSteps && modalState === "prompt") {
       setModalState("idle");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_checkedSteps, _totalSteps]);
 
   async function runLighthouse(fromModal = false): Promise<void> {
@@ -955,11 +1019,18 @@ function RoadmapCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: current.url, strategy: activeStrategy }),
       });
-      const data = await res.json() as LighthouseReport & { error?: string };
+      const data = (await res.json()) as LighthouseReport & { error?: string };
       if (!res.ok) {
-        const msg = data?.error ?? (language === "en" ? "Analysis failed" : "Análisis fallido");
-        if (fromModal) { setModalError(msg); setModalState("prompt"); }
-        else { setReanalyzeError(msg); setReanalyzing(false); }
+        const msg =
+          data?.error ??
+          (language === "en" ? "Analysis failed" : "Análisis fallido");
+        if (fromModal) {
+          setModalError(msg);
+          setModalState("prompt");
+        } else {
+          setReanalyzeError(msg);
+          setReanalyzing(false);
+        }
         return;
       }
       const newScores = {
@@ -968,12 +1039,13 @@ function RoadmapCard({
         seo: data.categories.seo.score,
         bestPractices: data.categories.bestPractices.score,
       };
-      
+
       // Identify which categories are now fixed (100% score)
-      const fixedCategories = (Object.keys(newScores) as (keyof typeof newScores)[])
-        .filter((k) => newScores[k] === 100);
+      const fixedCategories = (
+        Object.keys(newScores) as (keyof typeof newScores)[]
+      ).filter((k) => newScores[k] === 100);
       const now = new Date().toISOString();
-      
+
       // Update roadmap with new scores, uncheck all steps, and mark fixed items
       updateRoadmap(current.id, (r) => ({
         ...r,
@@ -987,22 +1059,24 @@ function RoadmapCard({
           steps: cat.steps.map((s) => ({
             ...s,
             checked: false,
-            fixedAt: fixedCategories.includes(cat.category as keyof typeof newScores) 
-              ? now 
+            fixedAt: fixedCategories.includes(
+              cat.category as keyof typeof newScores,
+            )
+              ? now
               : undefined,
           })),
         })),
       }));
-      
+
       if (fromModal) {
         const allPerfect = Object.values(newScores).every((s) => s === 100);
         if (allPerfect) {
           setModalState("success");
           fireConfetti();
         } else {
-          const still = (Object.keys(newScores) as (keyof typeof newScores)[]).filter(
-            (k) => newScores[k] < 100,
-          );
+          const still = (
+            Object.keys(newScores) as (keyof typeof newScores)[]
+          ).filter((k) => newScores[k] < 100);
           setPartialCats(still);
           setModalState("partial");
         }
@@ -1010,9 +1084,19 @@ function RoadmapCard({
         setReanalyzing(false);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : (language === "en" ? "Unknown error" : "Error desconocido");
-      if (fromModal) { setModalError(msg); setModalState("prompt"); }
-      else { setReanalyzeError(msg); setReanalyzing(false); }
+      const msg =
+        err instanceof Error
+          ? err.message
+          : language === "en"
+            ? "Unknown error"
+            : "Error desconocido";
+      if (fromModal) {
+        setModalError(msg);
+        setModalState("prompt");
+      } else {
+        setReanalyzeError(msg);
+        setReanalyzing(false);
+      }
     }
   }
 
@@ -1314,7 +1398,10 @@ function RoadmapCard({
             </span>
             <button
               className="text-[10px] px-1.5 py-0.5"
-              style={{ color: "#ff4e42", border: "1px solid rgba(255,78,66,0.3)" }}
+              style={{
+                color: "#ff4e42",
+                border: "1px solid rgba(255,78,66,0.3)",
+              }}
               onClick={() => setReanalyzeError("")}
             >
               ✕
@@ -1399,32 +1486,69 @@ function RoadmapCard({
                 roadmapId={roadmap.id}
               />
             ))}
-          
+
           {/* Re-analyze button at bottom */}
           <button
             className="text-[10px] px-3 py-2.5 uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-40 font-bold mt-2"
             style={{
               color: reanalyzing ? "var(--text-dim)" : "var(--primary-on)",
-              backgroundColor: reanalyzing ? "var(--surface-high)" : "var(--primary)",
+              backgroundColor: reanalyzing
+                ? "var(--surface-high)"
+                : "var(--primary)",
               border: `1px solid ${reanalyzing ? "var(--outline)" : "var(--primary)"}`,
             }}
             onClick={handleReanalyze}
             disabled={reanalyzing}
-            title={l("Re-analizar con Lighthouse", "Re-analyze with Lighthouse")}
-            onMouseEnter={(e) => { if (!reanalyzing) (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
+            title={l(
+              "Re-analizar con Lighthouse",
+              "Re-analyze with Lighthouse",
+            )}
+            onMouseEnter={(e) => {
+              if (!reanalyzing)
+                (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                  "0 0 12px rgba(107,255,143,0.3)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+            }}
           >
             {reanalyzing ? (
-              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+              <svg
+                className="w-3 h-3 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                />
               </svg>
             ) : (
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" d="M4 4v5h5M20 20v-5h-5M4.07 15a8 8 0 1013.86-8" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  d="M4 4v5h5M20 20v-5h-5M4.07 15a8 8 0 1013.86-8"
+                />
               </svg>
             )}
-            {reanalyzing ? l("Analizando...", "Analyzing...") : l("Re-analizar", "Re-analyze")}
+            {reanalyzing
+              ? l("Analizando...", "Analyzing...")
+              : l("Re-analizar", "Re-analyze")}
           </button>
         </div>
 
@@ -1470,7 +1594,7 @@ function RoadmapCard({
                     >
                       {l(
                         "¡Parece que completaste todo el roadmap! 🎉 Confirma que todos los cambios están listos ejecutando un nuevo análisis de Lighthouse para verificar que alcanzamos el 100%.",
-                        "It looks like you've completed the entire roadmap! 🎉 Confirm that all changes are ready by running a new Lighthouse analysis to verify we achieved 100%."
+                        "It looks like you've completed the entire roadmap! 🎉 Confirm that all changes are ready by running a new Lighthouse analysis to verify we achieved 100%.",
                       )}
                     </p>
 
@@ -1509,14 +1633,21 @@ function RoadmapCard({
                         disabled={modalState === "analyzing"}
                         onMouseEnter={(e) => {
                           if (modalState !== "analyzing") {
-                            (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
+                            (
+                              e.currentTarget as HTMLButtonElement
+                            ).style.boxShadow =
+                              "0 0 12px rgba(107,255,143,0.3)";
                           }
                         }}
                         onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.boxShadow = "none";
                         }}
                       >
-                        {modalState === "analyzing" ? l("Analizando...", "Analyzing...") : l("Re-analizar", "Re-analyze")}
+                        {modalState === "analyzing"
+                          ? l("Analizando...", "Analyzing...")
+                          : l("Re-analizar", "Re-analyze")}
                       </button>
                     </div>
                   </div>
@@ -1537,21 +1668,33 @@ function RoadmapCard({
                       className="text-sm font-bold tracking-widest flex items-center gap-2"
                       style={{ color: "var(--primary)" }}
                     >
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                      <svg
+                        className="w-4 h-4 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                        />
                       </svg>
                       {l("ANALIZANDO", "ANALYZING")}
                     </h2>
                   </div>
                   <div className="px-6 py-8 text-center">
-                    <p
-                      className="text-xs"
-                      style={{ color: "var(--text-dim)" }}
-                    >
+                    <p className="text-xs" style={{ color: "var(--text-dim)" }}>
                       {l(
                         "Ejecutando Lighthouse... Por favor espera.",
-                        "Running Lighthouse analysis... Please wait."
+                        "Running Lighthouse analysis... Please wait.",
                       )}
                     </p>
                   </div>
@@ -1573,8 +1716,16 @@ function RoadmapCard({
                       className="text-sm font-bold tracking-widest flex items-center gap-2"
                       style={{ color: "#0cce6b" }}
                     >
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                       {l("¡FELICIDADES!", "CONGRATULATIONS!")}
                     </h2>
@@ -1587,7 +1738,7 @@ function RoadmapCard({
                       >
                         {l(
                           "🎉 ¡Alcanzaste el 100% en todas las métricas!",
-                          "🎉 You achieved 100% on all metrics!"
+                          "🎉 You achieved 100% on all metrics!",
                         )}
                       </p>
                       <p
@@ -1596,7 +1747,7 @@ function RoadmapCard({
                       >
                         {l(
                           "Tu sitio web está en perfecto estado. Excelente trabajo en mejorar el rendimiento, accesibilidad, SEO y mejores prácticas.",
-                          "Your website is in perfect condition. Excellent work improving performance, accessibility, SEO, and best practices."
+                          "Your website is in perfect condition. Excellent work improving performance, accessibility, SEO, and best practices.",
                         )}
                       </p>
                     </div>
@@ -1609,10 +1760,12 @@ function RoadmapCard({
                       }}
                       onClick={() => setModalState("idle")}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                          "0 0 12px rgba(107,255,143,0.3)";
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                          "none";
                       }}
                     >
                       {l("Cerrar", "Close")}
@@ -1636,8 +1789,18 @@ function RoadmapCard({
                       className="text-sm font-bold tracking-widest flex items-center gap-2"
                       style={{ color: "#ffa400" }}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
                       </svg>
                       {l("¡CASI LISTO!", "ALMOST THERE!")}
                     </h2>
@@ -1649,7 +1812,7 @@ function RoadmapCard({
                     >
                       {l(
                         "¡Estamos muy cerca! Aquí están las métricas que aún necesitan mejoras. Sigue trabajando en estos puntos. 💪",
-                        "We're almost there! Here are the metrics that still need improvements. Keep working on these areas. 💪"
+                        "We're almost there! Here are the metrics that still need improvements. Keep working on these areas. 💪",
                       )}
                     </p>
 
@@ -1706,10 +1869,14 @@ function RoadmapCard({
                         }}
                         onClick={() => runLighthouse(true)}
                         onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
                         }}
                         onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.boxShadow = "none";
                         }}
                       >
                         {l("Re-analizar", "Re-analyze")}
