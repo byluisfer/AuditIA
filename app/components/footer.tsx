@@ -5,17 +5,17 @@ import { useAppLanguage } from "../lib/app-language";
 const I18N = {
   es: {
     sysEnv: "SYS_ENV: PRODUCCIÓN",
-    organizer: "ORGANIZER:",
-    sponsor: "SPONSOR:",
-    repo: "REPO:",
-    hackathon: "HACKATON:",
+    admin: "ADMIN",
+    infrastructure: "INFRA_NODE",
+    codeArchive: "CODE_ARCHIVE",
+    seedProject: "SEED_PROJECT",
   },
   en: {
     sysEnv: "SYS_ENV: PRODUCTION",
-    organizer: "ORGANIZER:",
-    sponsor: "SPONSOR:",
-    repo: "REPO:",
-    hackathon: "HACKATHON:",
+    admin: "ADMIN",
+    infrastructure: "INFRA_NODE",
+    codeArchive: "CODE_ARCHIVE",
+    seedProject: "SEED_PROJECT",
   },
 } as const;
 
@@ -45,22 +45,51 @@ export function Footer() {
           fontFamily: "var(--font-jetbrains-mono), monospace",
         }}
       >
-        {/* Left — system env + hackathon credits */}
+        {/* Left — system env + core info */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <span style={{ color: "var(--primary)", opacity: 0.8 }}>
             {t.sysEnv}
           </span>
-          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>|</span>
-          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.organizer}</span>
-          <span className="hidden sm:inline" style={{ color: "var(--primary)" }}>MIDUDEV</span>
-          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>|</span>
-          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.sponsor}</span>
-          <span className="hidden sm:inline" style={{ color: "var(--primary)" }}>CUBEPATH</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>
+            |
+          </span>
+          <span
+            className="hidden sm:inline"
+            style={{ opacity: 0.5, color: "var(--primary)" }}
+          >
+            {t.admin}:
+          </span>
+          <span
+            className="hidden sm:inline"
+            style={{ color: "var(--primary)" }}
+          >
+            MIDUDEV
+          </span>
+          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>
+            |
+          </span>
+          <span
+            className="hidden sm:inline"
+            style={{ opacity: 0.5, color: "var(--primary)" }}
+          >
+            {t.infrastructure}:
+          </span>
+          <span
+            className="hidden sm:inline"
+            style={{ color: "var(--primary)" }}
+          >
+            CUBEPATH
+          </span>
         </div>
 
         {/* Right — external links */}
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.repo}</span>
+          <span
+            className="hidden sm:inline"
+            style={{ opacity: 0.5, color: "var(--primary)" }}
+          >
+            {t.codeArchive}:
+          </span>
           <a
             href="https://github.com/byluisfer/AuditIA"
             target="_blank"
@@ -72,8 +101,15 @@ export function Footer() {
           >
             GITHUB/AUDITIA
           </a>
-          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>|</span>
-          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.hackathon}</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>
+            |
+          </span>
+          <span
+            className="hidden sm:inline"
+            style={{ opacity: 0.5, color: "var(--primary)" }}
+          >
+            {t.seedProject}:
+          </span>
           <a
             href="https://github.com/midudev/hackaton-cubepath-2026"
             target="_blank"
