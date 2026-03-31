@@ -834,7 +834,7 @@ function CategorySection({
                         opacity: step.fixedAt && step.checked ? 0.8 : 1,
                       }}
                       onClick={() => toggleStep(step.id)}
-                      disabled={step.fixedAt && step.checked}
+                      disabled={Boolean(step.fixedAt) && Boolean(step.checked)}
                       onMouseEnter={(e) => {
                         if (!step.checked && !step.fixedAt) {
                           e.currentTarget.style.color = "var(--primary)";
@@ -1630,14 +1630,11 @@ function RoadmapCard({
                           border: "1px solid var(--primary)",
                         }}
                         onClick={() => runLighthouse(true)}
-                        disabled={modalState === "analyzing"}
+                        disabled={false}
                         onMouseEnter={(e) => {
-                          if (modalState !== "analyzing") {
-                            (
-                              e.currentTarget as HTMLButtonElement
-                            ).style.boxShadow =
-                              "0 0 12px rgba(107,255,143,0.3)";
-                          }
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
                         }}
                         onMouseLeave={(e) => {
                           (
@@ -1645,9 +1642,7 @@ function RoadmapCard({
                           ).style.boxShadow = "none";
                         }}
                       >
-                        {modalState === "analyzing"
-                          ? l("Analizando...", "Analyzing...")
-                          : l("Re-analizar", "Re-analyze")}
+                        {l("Re-analizar", "Re-analyze")}
                       </button>
                     </div>
                   </div>
