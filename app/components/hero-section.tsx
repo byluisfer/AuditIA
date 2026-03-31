@@ -958,6 +958,53 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
   );
 }
 
+// ── Roadmap rate limit ────────────────────────────────────────────────────────
+const RL_KEY = "auditia-rl";
+const RL_MAX = 5;
+
+function rlToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function rlRead(): { count: number; date: string } {
+  try {
+    const raw = localStorage.getItem(RL_KEY);
+    if (!raw) return { count: 0, date: rlToday() };
+    const parsed = JSON.parse(raw) as { count: number; date: string };
+    if (parsed.date !== rlToday()) return { count: 0, date: rlToday() };
+    return parsed;
+  } catch {
+    return { count: 0, date: rlToday() };
+  }
+}
+
+function rlIncrement(): number {
+  const next = { count: rlRead().count + 1, date: rlToday() };
+  localStorage.setItem(RL_KEY, JSON.stringify(next));
+  return next.count;
+}
+
+function rlTimeUntilReset(): string {
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const diffMs = midnight.getTime() - now.getTime();
+  const h = Math.floor(diffMs / 3_600_000);
+  const m = Math.floor((diffMs % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function useRoadmapRateLimit() {
+  const [used, setUsed] = useState(0);
+  useEffect(() => {
+    setUsed(rlRead().count);
+  }, []);
+  function increment() {
+    setUsed(rlIncrement());
+  }
+  return { used, limit: RL_MAX, remaining: Math.max(0, RL_MAX - used), canGenerate: used < RL_MAX, increment };
+}
+
 // ── HeroSection ───────────────────────────────────────────────────────────────
 export function HeroSection() {
   const language = useAppLanguage();
@@ -970,6 +1017,7 @@ export function HeroSection() {
   const [report, setReport] = useState<LighthouseReport | null>(null);
   const [viewState, setViewState] = useState<ViewState>("form");
   const [analysisUrl, setAnalysisUrl] = useState("");
+  const rl = useRoadmapRateLimit();
   const [roadmapStatus, setRoadmapStatus] = useState<
     "idle" | "loading" | "done" | "error"
   >("idle");
@@ -990,6 +1038,9 @@ export function HeroSection() {
       router.push(`/roadmaps?id=${existing.id}`);
       return;
     }
+
+    if (!rl.canGenerate) return;
+    rl.increment();
 
     setRoadmapStatus("loading");
     setRoadmapError("");
@@ -1724,66 +1775,180 @@ export function HeroSection() {
                           </div>
                         </div>
 
-                        <button
-                          className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                        {/* Quota bar */}
+                        <div
+                          className="flex items-center gap-3 px-3 py-2"
                           style={{
                             fontFamily: "var(--font-jetbrains-mono), monospace",
-                            backgroundColor:
-                              roadmapStatus === "loading"
-                                ? "var(--surface-high)"
-                                : "var(--primary)",
-                            color:
-                              roadmapStatus === "loading"
-                                ? "var(--primary)"
-                                : "var(--primary-on)",
-                            boxShadow:
-                              roadmapStatus === "loading"
-                                ? "none"
-                                : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
+                            backgroundColor: "var(--surface-high)",
+                            border: `1px solid ${rl.remaining === 0 ? "rgba(255,78,66,0.25)" : "rgba(107,255,143,0.12)"}`,
                           }}
-                          disabled={roadmapStatus === "loading"}
-                          onClick={handleGenerateRoadmap}
-                          onMouseEnter={(e) => {
-                            if (roadmapStatus !== "loading")
-                              e.currentTarget.style.filter = "brightness(0.88)";
-                          }}
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.filter = "")
-                          }
                         >
-                          {roadmapStatus === "loading" ? (
-                            <>
-                              <span className="terminal-pulse">&gt;</span>
-                              {l(
-                                "Generando roadmap...",
-                                "Generating roadmap...",
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <svg
-                                className="w-4 h-4 shrink-0"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                strokeWidth={2}
-                                aria-hidden="true"
+                          <span
+                            className="text-[10px] tracking-widest"
+                            style={{ color: "var(--text-dim)", opacity: 0.5 }}
+                          >
+                            AI_QUOTA
+                          </span>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: rl.limit }).map((_, i) => (
+                              <span
+                                key={i}
+                                style={{
+                                  display: "inline-block",
+                                  width: 10,
+                                  height: 10,
+                                  backgroundColor:
+                                    i < rl.used
+                                      ? rl.remaining === 0
+                                        ? "#ff4e42"
+                                        : "rgba(107,255,143,0.35)"
+                                      : "transparent",
+                                  border: `1px solid ${i < rl.used ? (rl.remaining === 0 ? "rgba(255,78,66,0.6)" : "rgba(107,255,143,0.4)") : "var(--outline)"}`,
+                                  boxShadow:
+                                    i < rl.used && rl.remaining > 0
+                                      ? "0 0 4px rgba(107,255,143,0.3)"
+                                      : "none",
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <span
+                            className="text-[10px] tabular-nums"
+                            style={{
+                              color:
+                                rl.remaining === 0
+                                  ? "#ff4e42"
+                                  : "var(--text-dim)",
+                            }}
+                          >
+                            {rl.remaining}/{rl.limit}
+                          </span>
+                          <span
+                            className="text-[10px] ml-auto"
+                            style={{ color: "var(--text-dim)", opacity: 0.4 }}
+                          >
+                            {l("reset en", "resets in")} {rlTimeUntilReset()}
+                          </span>
+                        </div>
+
+                        {rl.canGenerate ? (
+                          <button
+                            className="w-full flex items-center justify-center gap-3 py-4 text-sm tracking-[0.25em] font-black uppercase transition-all duration-150 active:brightness-90"
+                            style={{
+                              fontFamily:
+                                "var(--font-jetbrains-mono), monospace",
+                              backgroundColor:
+                                roadmapStatus === "loading"
+                                  ? "var(--surface-high)"
+                                  : "var(--primary)",
+                              color:
+                                roadmapStatus === "loading"
+                                  ? "var(--primary)"
+                                  : "var(--primary-on)",
+                              boxShadow:
+                                roadmapStatus === "loading"
+                                  ? "none"
+                                  : "0 0 36px rgba(107,255,143,0.18), 0 4px 16px rgba(0,0,0,0.25)",
+                            }}
+                            disabled={roadmapStatus === "loading"}
+                            onClick={handleGenerateRoadmap}
+                            onMouseEnter={(e) => {
+                              if (roadmapStatus !== "loading")
+                                e.currentTarget.style.filter =
+                                  "brightness(0.88)";
+                            }}
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.filter = "")
+                            }
+                          >
+                            {roadmapStatus === "loading" ? (
+                              <>
+                                <span className="terminal-pulse">&gt;</span>
+                                {l(
+                                  "Generando roadmap...",
+                                  "Generating roadmap...",
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <svg
+                                  className="w-4 h-4 shrink-0"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={2}
+                                  aria-hidden="true"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                                  />
+                                </svg>
+                                &gt; {l("Generar roadmap", "Generate roadmap")}
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <div
+                            style={{
+                              fontFamily:
+                                "var(--font-jetbrains-mono), monospace",
+                              backgroundColor: "rgba(255,78,66,0.05)",
+                              border: "1px solid rgba(255,78,66,0.25)",
+                              borderLeft: "2px solid #ff4e42",
+                            }}
+                          >
+                            <div
+                              className="flex items-center justify-between px-4 py-2"
+                              style={{
+                                borderBottom: "1px solid rgba(255,78,66,0.15)",
+                                backgroundColor: "rgba(255,78,66,0.06)",
+                              }}
+                            >
+                              <span
+                                className="text-[10px] tracking-[0.2em] uppercase font-bold"
+                                style={{ color: "#ff4e42" }}
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-                                />
-                              </svg>
-                              &gt; {l("Generar roadmap", "Generate roadmap")}
-                            </>
-                          )}
-                        </button>
+                                ACCESS_DENIED
+                              </span>
+                              <span
+                                className="text-[9px] px-2 py-0.5 tracking-widest"
+                                style={{
+                                  color: "#ff4e42",
+                                  border: "1px solid rgba(255,78,66,0.35)",
+                                }}
+                              >
+                                429
+                              </span>
+                            </div>
+                            <div className="px-4 py-3 flex flex-col gap-1.5">
+                              {[
+                                `› DAILY_LIMIT_REACHED · ${rl.used}/${rl.limit} ${l("solicitudes usadas", "requests used")}`,
+                                `› ${l("Reset en", "Resets in")} ${rlTimeUntilReset()} · ${l("a la medianoche", "at midnight")}`,
+                                `› ${l("Manana tendras", "Tomorrow you get")} ${rl.limit} ${l("nuevas solicitudes", "new requests")}`,
+                              ].map((line, i) => (
+                                <div
+                                  key={i}
+                                  className="text-[11px]"
+                                  style={{
+                                    color:
+                                      i === 0 ? "#ff4e42" : "var(--text-dim)",
+                                    opacity: i === 0 ? 1 : 0.6,
+                                  }}
+                                >
+                                  {line}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
                     {roadmapError && (
