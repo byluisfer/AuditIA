@@ -103,6 +103,8 @@ const COLLAPSED_W = "3.5rem";
 export function Sidebar() {
   const initialCollapsed = useSidebarInitialCollapsed();
   const [showSettings, setShowSettings] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") return "dark";
     const rawStored = localStorage.getItem(THEME_KEY);
@@ -135,13 +137,25 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = I18N[language];
 
-  // Keep CSS variable in sync with collapsed state
+  // Detect mobile breakpoint
+  useEffect(() => {
+    function checkMobile() {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setMobileOpen(false);
+    }
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Keep CSS variable in sync with collapsed state and mobile
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--sidebar-w",
-      collapsed ? COLLAPSED_W : EXPANDED_W,
+      isMobile ? "0px" : collapsed ? COLLAPSED_W : EXPANDED_W,
     );
-  }, [collapsed]);
+  }, [collapsed, isMobile]);
 
   useEffect(() => {
     if (!showSettings) return;
@@ -176,15 +190,54 @@ export function Sidebar() {
   }
 
   return (
+    <>
+      {/* ── Mobile hamburger button ─────────────────────────────────────────── */}
+      {isMobile && !mobileOpen && (
+        <button
+          className="fixed top-3 left-3 z-65 flex items-center justify-center transition-all duration-150"
+          style={{
+            width: 32,
+            height: 32,
+            backgroundColor: "var(--surface)",
+            border: "1px solid var(--surface-high)",
+            color: "var(--text-dim)",
+          }}
+          onClick={() => setMobileOpen(true)}
+          aria-label={language === "en" ? "Open menu" : "Abrir menú"}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "var(--primary)";
+            e.currentTarget.style.borderColor = "var(--primary)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--text-dim)";
+            e.currentTarget.style.borderColor = "var(--surface-high)";
+          }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="square" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
+      {/* ── Mobile backdrop ─────────────────────────────────────────────────── */}
+      {isMobile && mobileOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
     <aside
       suppressHydrationWarning
       className="fixed left-0 top-0 bottom-0 z-50 flex flex-col"
       style={{
-        width: collapsed ? COLLAPSED_W : EXPANDED_W,
+        width: isMobile ? EXPANDED_W : collapsed ? COLLAPSED_W : EXPANDED_W,
         backgroundColor: "var(--surface)",
         borderRight: "1px solid var(--surface-high)",
-        transition: "width 0.2s ease",
+        transition: "width 0.2s ease, transform 0.25s ease",
         overflow: "hidden",
+        transform: isMobile && !mobileOpen ? "translateX(-100%)" : "translateX(0)",
       }}
     >
       {/* ── Brand ────────────────────────────────────────────────────────────── */}
@@ -193,10 +246,10 @@ export function Sidebar() {
         style={{
           height: "3rem",
           borderBottom: "1px solid var(--surface-high)",
-          justifyContent: collapsed ? "center" : "space-between",
+          justifyContent: isMobile ? "space-between" : collapsed ? "center" : "space-between",
         }}
       >
-        {!collapsed && (
+        {(isMobile || !collapsed) && (
           <div className="flex items-center gap-2 min-w-0">
             <Image
               src="/AuditIA.svg"
@@ -218,49 +271,79 @@ export function Sidebar() {
           </div>
         )}
 
-        <button
-          onClick={toggle}
-          className="flex items-center justify-center shrink-0 transition-all duration-150"
-          style={{
-            width: 26,
-            height: 26,
-            color: "var(--text-dim)",
-            border: "1px solid var(--outline)",
-            backgroundColor: "transparent",
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--primary)";
-            e.currentTarget.style.borderColor = "var(--primary)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-dim)";
-            e.currentTarget.style.borderColor = "var(--outline)";
-          }}
-          aria-label={
-            collapsed
-              ? language === "en"
-                ? "Expand"
-                : "Expandir"
-              : language === "en"
-                ? "Collapse"
-                : "Colapsar"
-          }
-        >
-          <svg
-            className="w-3 h-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={2.5}
+        {isMobile ? (
+          /* Mobile: close button (X) */
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center justify-center shrink-0 transition-all duration-150"
             style={{
-              transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 0.2s ease",
+              width: 26,
+              height: 26,
+              color: "var(--text-dim)",
+              border: "1px solid var(--outline)",
+              backgroundColor: "transparent",
+              flexShrink: 0,
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--primary)";
+              e.currentTarget.style.borderColor = "var(--primary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-dim)";
+              e.currentTarget.style.borderColor = "var(--outline)";
+            }}
+            aria-label={language === "en" ? "Close menu" : "Cerrar menú"}
           >
-            <path strokeLinecap="square" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="square" d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        ) : (
+          /* Desktop: collapse/expand button */
+          <button
+            onClick={toggle}
+            className="flex items-center justify-center shrink-0 transition-all duration-150"
+            style={{
+              width: 26,
+              height: 26,
+              color: "var(--text-dim)",
+              border: "1px solid var(--outline)",
+              backgroundColor: "transparent",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--primary)";
+              e.currentTarget.style.borderColor = "var(--primary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-dim)";
+              e.currentTarget.style.borderColor = "var(--outline)";
+            }}
+            aria-label={
+              collapsed
+                ? language === "en"
+                  ? "Expand"
+                  : "Expandir"
+                : language === "en"
+                  ? "Collapse"
+                  : "Colapsar"
+            }
+          >
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              style={{
+                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.2s ease",
+              }}
+            >
+              <path strokeLinecap="square" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* ── Nav items ────────────────────────────────────────────────────────── */}
@@ -272,11 +355,12 @@ export function Sidebar() {
             <Link
               key={id}
               href={href}
-              title={collapsed ? itemLabel : undefined}
+              title={collapsed && !isMobile ? itemLabel : undefined}
+              onClick={() => isMobile && setMobileOpen(false)}
               className="flex items-center gap-3 transition-all duration-150"
               style={{
-                padding: collapsed ? "0.65rem 0" : "0.6rem 0.875rem",
-                justifyContent: collapsed ? "center" : "flex-start",
+                padding: collapsed && !isMobile ? "0.65rem 0" : "0.6rem 0.875rem",
+                justifyContent: collapsed && !isMobile ? "center" : "flex-start",
                 color: active ? "var(--primary-on)" : "var(--text-dim)",
                 backgroundColor: active ? "var(--primary)" : "transparent",
                 fontFamily: "var(--font-jetbrains-mono), monospace",
@@ -299,7 +383,7 @@ export function Sidebar() {
               }}
             >
               {icon}
-              {!collapsed && (
+              {(!collapsed || isMobile) && (
                 <span className="flex items-baseline gap-1.5">
                   <span style={{ opacity: active ? 0.5 : 0.3 }}>./</span>
                   {itemLabel}
@@ -319,12 +403,12 @@ export function Sidebar() {
         }}
       >
         <button
-          onClick={() => setShowSettings(true)}
-          title={collapsed ? t.settings : undefined}
+          onClick={() => { setShowSettings(true); if (isMobile) setMobileOpen(false); }}
+          title={collapsed && !isMobile ? t.settings : undefined}
           className="flex items-center gap-3 transition-all duration-150 w-full"
           style={{
-            padding: collapsed ? "0.65rem 0" : "0.6rem 0.875rem",
-            justifyContent: collapsed ? "center" : "flex-start",
+            padding: collapsed && !isMobile ? "0.65rem 0" : "0.6rem 0.875rem",
+            justifyContent: collapsed && !isMobile ? "center" : "flex-start",
             color: "var(--text-dim)",
             backgroundColor: "transparent",
             fontFamily: "var(--font-jetbrains-mono), monospace",
@@ -358,7 +442,7 @@ export function Sidebar() {
             <circle cx="15" cy="12" r="2" fill="var(--surface)" />
             <circle cx="11" cy="18" r="2" fill="var(--surface)" />
           </svg>
-          {!collapsed && (
+          {(!collapsed || isMobile) && (
             <span className="flex items-baseline gap-1.5">
               <span style={{ opacity: 0.3 }}>./</span>
               {t.settings}
@@ -538,5 +622,6 @@ export function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }

@@ -334,7 +334,7 @@ function TerminalLs({
       </div>
 
       {/* Terminal body */}
-      <div className="p-6 md:p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         {/* Static command line */}
         <div
           className="mb-5 flex items-baseline gap-2"
@@ -349,14 +349,14 @@ function TerminalLs({
 
         {/* Column headers */}
         <div
-          className="flex items-center gap-4 px-3 py-1.5 mb-2 text-[9px] tracking-[0.14em] uppercase"
+          className="flex items-center gap-3 sm:gap-4 px-3 py-1.5 mb-2 text-[9px] tracking-[0.14em] uppercase"
           style={{
             color: "var(--text-dim)",
             borderBottom: "1px solid var(--surface-high)",
             opacity: 0.6,
           }}
         >
-          <span className="w-24 shrink-0">{l("Fecha", "Date")}</span>
+          <span className="w-16 sm:w-24 shrink-0">{l("Fecha", "Date")}</span>
           <span className="flex-1">{l("Dominio", "Domain")}</span>
           <span className="hidden md:block w-24 text-center shrink-0">
             {l("Vistas", "Views")}
@@ -364,7 +364,7 @@ function TerminalLs({
           <span className="w-16 text-right shrink-0">
             {l("Progreso", "Progress")}
           </span>
-          <span className="w-12 text-right shrink-0">Tasks</span>
+          <span className="hidden sm:block w-12 text-right shrink-0">Tasks</span>
         </div>
 
         {/* Roadmap entries */}
@@ -399,7 +399,7 @@ function TerminalLs({
               <button
                 key={r.id}
                 onClick={() => onSelect(r.id)}
-                className="ls-entry-in flex items-center gap-4 px-3 py-3 text-left group w-full"
+                className="ls-entry-in flex items-center gap-3 sm:gap-4 px-3 py-3 text-left group w-full"
                 style={{
                   animationDelay: `${idx * 40}ms`,
                   border: "1px solid transparent",
@@ -416,7 +416,7 @@ function TerminalLs({
               >
                 {/* Date */}
                 <span
-                  className="text-[10px] w-24 shrink-0"
+                  className="text-[10px] w-16 sm:w-24 shrink-0"
                   style={{ color: "var(--text-dim)" }}
                 >
                   {localizedDate}
@@ -470,7 +470,7 @@ function TerminalLs({
 
                 {/* Tasks */}
                 <span
-                  className="text-[10px] w-12 text-right shrink-0"
+                  className="hidden sm:block text-[10px] w-12 text-right shrink-0"
                   style={{ color: "var(--text-dim)" }}
                 >
                   {done}/{total}
@@ -520,9 +520,8 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
 
   return (
     <div
-      className="grid"
+      className="grid grid-cols-2 sm:grid-cols-4"
       style={{
-        gridTemplateColumns: `repeat(${ALL_CATEGORIES.length}, 1fr)`,
         borderBottom: "1px solid var(--surface-high)",
       }}
     >
@@ -531,17 +530,20 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
         const color = scoreToColor(score);
         const label = CATEGORY_SHORT[cat];
         const hasIssues = activeSet.has(cat);
+        // Mobile (2-col): border-right on col 0 (i=0,2), border-bottom on row 0 (i=0,1)
+        // Desktop (sm, 4-col): border-right on all except last
+        const borderClasses = [
+          "border-r border-b sm:border-r sm:border-b-0",
+          "border-b sm:border-r sm:border-b-0",
+          "border-r sm:border-r",
+          "sm:border-r-0",
+        ][i];
 
         return (
           <div
             key={cat}
-            className="flex flex-col items-center gap-1.5 py-5"
-            style={{
-              borderRight:
-                i < ALL_CATEGORIES.length - 1
-                  ? "1px solid var(--surface-high)"
-                  : "none",
-            }}
+            className={`flex flex-col items-center gap-1.5 py-4 sm:py-5 ${borderClasses}`}
+            style={{ borderColor: "var(--surface-high)" }}
           >
             <span
               className="text-[9px] tracking-[0.14em] uppercase"
@@ -639,7 +641,7 @@ function CategorySection({
     >
       {/* Header */}
       <button
-        className="w-full flex items-center gap-3 px-5 py-3.5 text-left"
+        className="w-full flex items-center gap-3 px-3 sm:px-5 py-3.5 text-left"
         style={{
           borderBottom: expanded ? "1px solid var(--surface-high)" : "none",
         }}
@@ -664,7 +666,7 @@ function CategorySection({
       </button>
 
       {expanded && (
-        <div className="px-5 py-4 flex flex-col gap-2">
+        <div className="px-3 sm:px-5 py-4 flex flex-col gap-2">
           <p
             className="text-xs leading-relaxed mb-2"
             style={{ color: "var(--text-dim)" }}
@@ -693,7 +695,7 @@ function CategorySection({
                     transition: "background 0.25s, border-color 0.25s",
                   }}
                 >
-                  <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="flex items-start gap-2 sm:gap-3 px-3 sm:px-4 py-3">
                     {/* Checkbox */}
                     <button
                       className="mt-0.5 shrink-0 px-1.5 py-0.5 text-[11px] font-bold tracking-[0.08em] transition-all duration-150"
@@ -1168,7 +1170,7 @@ function RoadmapCard({
         <ScorePanel roadmap={roadmap} />
 
         {/* Progress + summary */}
-        <div className="px-6 py-5 flex flex-col gap-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col gap-4">
           <div className="flex items-center gap-4">
             <div
               className="text-3xl font-black tabular-nums"
@@ -1192,7 +1194,7 @@ function RoadmapCard({
         </div>
 
         {/* Categories — only those with actual steps */}
-        <div className="px-6 pb-6 flex flex-col gap-3">
+        <div className="px-3 sm:px-6 pb-4 sm:pb-6 flex flex-col gap-3">
           {roadmap.categories
             .filter((cat) => cat.steps.length > 0)
             .map((cat) => (
@@ -1255,14 +1257,14 @@ export default function RoadmapsPage() {
       <Sidebar />
 
       <main
-        className="flex flex-col min-h-screen px-6 lg:px-14 py-12"
+        className="flex flex-col min-h-screen px-3 sm:px-6 lg:px-14 py-10 sm:py-12 pt-14 sm:pt-12"
         style={{
           marginLeft: "var(--sidebar-w, 15rem)",
           transition: "margin-left 0.2s ease",
         }}
       >
         {/* Page header */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6 sm:mb-8">
           <h1
             className="text-sm tracking-[0.3em] uppercase font-bold"
             style={{ color: "var(--text)" }}

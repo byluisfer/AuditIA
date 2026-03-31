@@ -36,17 +36,11 @@ const BOOT_LINES = {
 export function StartupLoader() {
   const language = useAppLanguage();
   const bootLines = BOOT_LINES[language];
-  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(true);
   const [fadingOut, setFadingOut] = useState(false);
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState(0);
   const [visibleLines, setVisibleLines] = useState<number[]>([]);
-
-  // Mount only on client to avoid SSR/hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Animate progress bar
   useEffect(() => {
@@ -119,7 +113,7 @@ export function StartupLoader() {
     return () => window.clearTimeout(t);
   }, [ready]);
 
-  if (!mounted || !visible) return null;
+  if (!visible) return null;
 
   const currentLine = bootLines[visibleLines[visibleLines.length - 1]];
 

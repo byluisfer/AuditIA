@@ -39,28 +39,28 @@ export function Footer() {
       />
 
       <div
-        className="flex items-center justify-between px-6 py-2.5 text-[10px] tracking-[0.18em] uppercase"
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-2 sm:py-2.5 gap-1.5 sm:gap-0 text-[10px] tracking-[0.18em] uppercase"
         style={{
           color: "var(--text-dim)",
           fontFamily: "var(--font-jetbrains-mono), monospace",
         }}
       >
         {/* Left — system env + hackathon credits */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <span style={{ color: "var(--primary)", opacity: 0.8 }}>
             {t.sysEnv}
           </span>
-          <span style={{ opacity: 0.2 }}>|</span>
-          <span style={{ opacity: 0.5 }}>{t.organizer}</span>
-          <span style={{ color: "var(--primary)" }}>MIDUDEV</span>
-          <span style={{ opacity: 0.2 }}>|</span>
-          <span style={{ opacity: 0.5 }}>{t.sponsor}</span>
-          <span style={{ color: "var(--primary)" }}>CUBEPATH</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>|</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.organizer}</span>
+          <span className="hidden sm:inline" style={{ color: "var(--primary)" }}>MIDUDEV</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>|</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.sponsor}</span>
+          <span className="hidden sm:inline" style={{ color: "var(--primary)" }}>CUBEPATH</span>
         </div>
 
         {/* Right — external links */}
-        <div className="flex items-center gap-4">
-          <span style={{ opacity: 0.5 }}>{t.repo}</span>
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.repo}</span>
           <a
             href="https://github.com/byluisfer/AuditIA"
             target="_blank"
@@ -72,13 +72,13 @@ export function Footer() {
           >
             GITHUB/AUDITIA
           </a>
-          <span style={{ opacity: 0.2 }}>|</span>
-          <span style={{ opacity: 0.5 }}>{t.hackathon}</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.2 }}>|</span>
+          <span className="hidden sm:inline" style={{ opacity: 0.5 }}>{t.hackathon}</span>
           <a
             href="https://github.com/midudev/hackaton-cubepath-2026"
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors duration-150"
+            className="transition-colors duration-150 hidden sm:inline"
             style={{ color: "var(--primary)" }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}

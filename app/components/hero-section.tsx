@@ -344,9 +344,8 @@ function TerminalLoader({
 
         {/* ── Terminal body ───────────────────────────────────────────────── */}
         <div
-          className="relative overflow-hidden"
+          className="relative overflow-hidden p-5 sm:p-9"
           style={{
-            padding: "2rem 2.25rem",
             minHeight: "22rem",
             fontFamily: "var(--font-jetbrains-mono), monospace",
           }}
@@ -706,9 +705,8 @@ function RoadmapLoader({
 
         {/* Terminal body */}
         <div
-          className="relative overflow-hidden"
+          className="relative overflow-hidden p-5 sm:p-9"
           style={{
-            padding: "2rem 2.25rem",
             minHeight: "18rem",
             fontFamily: "var(--font-jetbrains-mono), monospace",
           }}
@@ -1221,7 +1219,7 @@ export function HeroSection() {
 
   return (
     <main
-      className="relative z-20 flex flex-col items-center justify-center min-h-screen px-12 lg:px-24"
+      className="relative z-20 flex flex-col items-center justify-center min-h-screen px-4 sm:px-8 lg:px-24 py-16"
       style={{
         marginLeft: "var(--sidebar-w, 15rem)",
         transition: "margin-left 0.2s ease",
@@ -1280,7 +1278,7 @@ export function HeroSection() {
               </span>
             </div>
 
-            <div className="p-8 pb-10">
+            <div className="p-5 sm:p-8 sm:pb-10">
               <UrlInput value={url} onChange={setUrl} disabled={false} />
 
               {/* Strategy toggle */}
@@ -1374,9 +1372,9 @@ export function HeroSection() {
       {viewState === "results" && report && (
         <div className="w-full max-w-3xl results-fade-in flex flex-col gap-8">
           {/* Meta bar */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 justify-between">
             <div
-              className="text-[10px] tracking-[0.15em] uppercase"
+              className="text-[10px] tracking-[0.15em] uppercase truncate max-w-full sm:max-w-[60%]"
               style={{
                 color: "var(--text-dim)",
                 fontFamily: "var(--font-jetbrains-mono), monospace",
@@ -1467,7 +1465,7 @@ export function HeroSection() {
               </div>
 
               {/* Gauges */}
-              <div className="grid grid-cols-4 gap-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-0">
                 {[
                   {
                     score: report.categories.performance.score,
@@ -1482,25 +1480,30 @@ export function HeroSection() {
                     label: l("Buenas Practicas", "Best Practices"),
                   },
                   { score: report.categories.seo.score, label: "SEO" },
-                ].map(({ score, label }, i, arr) => (
-                  <div
-                    key={label}
-                    className="flex flex-col items-center py-10 px-4"
-                    style={{
-                      borderRight:
-                        i < arr.length - 1
-                          ? "1px solid var(--surface-high)"
-                          : "none",
-                    }}
-                  >
-                    <ScoreGauge score={score} label={label} />
-                  </div>
-                ))}
+                ].map(({ score, label }, i) => {
+                  // Mobile (2-col): border-right on col 0 (i=0,2), border-bottom on row 0 (i=0,1)
+                  // Desktop (sm, 4-col): border-right on all except last
+                  const borderClasses = [
+                    "border-r border-b sm:border-r sm:border-b-0",   // i=0
+                    "border-b sm:border-r sm:border-b-0",             // i=1
+                    "border-r sm:border-r",                           // i=2
+                    "sm:border-r-0",                                  // i=3
+                  ][i];
+                  return (
+                    <div
+                      key={label}
+                      className={`flex flex-col items-center py-6 sm:py-10 px-2 sm:px-4 ${borderClasses}`}
+                      style={{ borderColor: "var(--surface-high)" }}
+                    >
+                      <ScoreGauge score={score} label={label} />
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Overall score bar */}
               <div
-                className="px-8 py-4 flex items-center gap-4"
+                className="px-4 sm:px-8 py-4 flex items-center gap-4"
                 style={{ borderTop: "1px solid var(--surface-high)" }}
               >
                 {(() => {
@@ -1619,7 +1622,7 @@ export function HeroSection() {
                   </div>
 
                   {/* Body */}
-                  <div className="p-6 flex flex-col gap-5">
+                  <div className="p-4 sm:p-6 flex flex-col gap-5">
                     {existingRoadmap ? (
                       <>
                         {/* Progress summary */}
