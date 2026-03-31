@@ -5,6 +5,8 @@ export type ChecklistItem = {
   priority: "alta" | "media" | "baja" | "high" | "medium" | "low";
   estimatedImpact: string;
   checked: boolean;
+  /** ISO timestamp when this item was marked as fixed (score reached 100%) */
+  fixedAt?: string;
 };
 
 export type CategoryRoadmap = {
@@ -30,4 +32,13 @@ export type Roadmap = {
     seo: number;
     bestPractices: number;
   };
+  /** Scores from the previous analysis run — used to show deltas */
+  previousScores?: {
+    performance: number;
+    accessibility: number;
+    seo: number;
+    bestPractices: number;
+  };
+  /** ISO timestamp of the last re-analysis */
+  reanalyzedAt?: string;
 };

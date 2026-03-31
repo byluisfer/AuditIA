@@ -1,7 +1,8 @@
 "use client";
-import { useState, useSyncExternalStore, useEffect, useMemo } from "react";
+import { useState, useSyncExternalStore, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import confetti from "canvas-confetti";
 import { Scanlines, Vignette } from "../components/overlays";
 import { Sidebar } from "../components/sidebar";
 import { Footer } from "../components/footer";
@@ -13,6 +14,13 @@ import {
 } from "../lib/storage";
 import { scoreToColor } from "../lib/score-utils";
 import type { Roadmap, CategoryRoadmap } from "../types/roadmap";
+import type { LighthouseReport } from "../api/analyze/route";
+
+function fireConfetti() {
+  void confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ["#0cce6b", "#6bff8f", "#00ff55", "#ffffff"] });
+  void confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0 }, colors: ["#0cce6b", "#6bff8f"] });
+  void confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1 }, colors: ["#0cce6b", "#6bff8f"] });
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "auditia-roadmaps";
@@ -518,6 +526,26 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
     roadmap.categories.filter((c) => c.steps.length > 0).map((c) => c.category),
   );
 
+  // Fire confetti when all 4 lighthouse scores are 100
+  const confettiFiredRef = useRef(false);
+  useEffect(() => {
+    confettiFiredRef.current = false;
+  }, [roadmap.id]);
+  useEffect(() => {
+    const allPerfect = ALL_CATEGORIES.every((cat) => (scores[cat] ?? 0) === 100);
+    if (allPerfect && !confettiFiredRef.current) {
+      confettiFiredRef.current = true;
+      const end = Date.now() + 2800;
+      const burst = () => {
+        confetti({ particleCount: 7, angle: 60, spread: 60, origin: { x: 0 }, colors: ["#6bff8f", "#0cce6b", "#ffa400", "#fff"] });
+        confetti({ particleCount: 7, angle: 120, spread: 60, origin: { x: 1 }, colors: ["#6bff8f", "#0cce6b", "#ffa400", "#fff"] });
+        if (Date.now() < end) requestAnimationFrame(burst);
+      };
+      burst();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roadmap.id]);
+
   return (
     <div
       className="grid grid-cols-2 sm:grid-cols-4"
@@ -538,6 +566,9 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
           "border-r sm:border-r",
           "sm:border-r-0",
         ][i];
+
+        const prevScore = (roadmap.previousScores as Record<string, number> | undefined)?.[cat];
+        const delta = prevScore !== undefined ? score - prevScore : null;
 
         return (
           <div
@@ -561,6 +592,24 @@ function ScorePanel({ roadmap }: { roadmap: Roadmap }) {
             >
               {score}
             </span>
+            {/* Delta badge */}
+            {delta !== null && delta !== 0 && (
+              <div
+                className="flex items-center gap-0.5 text-[9px] font-bold tabular-nums"
+                style={{ color: delta > 0 ? "#0cce6b" : "#ff4e42" }}
+              >
+                {delta > 0 ? (
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="currentColor">
+                    <path d="M5 1l4 6H1z" />
+                  </svg>
+                ) : (
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="currentColor">
+                    <path d="M5 9L1 3h8z" />
+                  </svg>
+                )}
+                <span>{Math.abs(delta)}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <span
                 style={{
@@ -608,6 +657,10 @@ function CategorySection({
   } as const;
 
   function toggleStep(stepId: string) {
+    const step = cat.steps.find((s) => s.id === stepId);
+    // Prevent unchecking if step is fixed (score reached 100%)
+    if (step?.fixedAt && step.checked) return;
+    
     updateRoadmap(roadmapId, (r) => ({
       ...r,
       categories: r.categories.map((c) =>
@@ -701,7 +754,9 @@ function CategorySection({
                       className="mt-0.5 shrink-0 px-1.5 py-0.5 text-[11px] font-bold tracking-[0.08em] transition-all duration-150"
                       aria-label={
                         step.checked
-                          ? l("Marcar como pendiente", "Mark as pending")
+                          ? step.fixedAt
+                            ? l("Completado y fijado", "Completed and locked")
+                            : l("Marcar como pendiente", "Mark as pending")
                           : l("Marcar como completado", "Mark as completed")
                       }
                       style={{
@@ -712,15 +767,20 @@ function CategorySection({
                           ? "rgba(12,206,107,0.45)"
                           : "var(--outline)",
                         backgroundColor: step.checked
-                          ? "rgba(12,206,107,0.08)"
+                          ? step.fixedAt 
+                            ? "rgba(12,206,107,0.15)"
+                            : "rgba(12,206,107,0.08)"
                           : "transparent",
                         boxShadow: step.checked
                           ? "0 0 10px rgba(12,206,107,0.28)"
                           : "none",
+                        cursor: step.fixedAt && step.checked ? "not-allowed" : "pointer",
+                        opacity: step.fixedAt && step.checked ? 0.8 : 1,
                       }}
                       onClick={() => toggleStep(step.id)}
+                      disabled={step.fixedAt && step.checked}
                       onMouseEnter={(e) => {
-                        if (!step.checked) {
+                        if (!step.checked && !step.fixedAt) {
                           e.currentTarget.style.color = "var(--primary)";
                           e.currentTarget.style.borderColor =
                             "rgba(107,255,143,0.35)";
@@ -729,14 +789,14 @@ function CategorySection({
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (!step.checked) {
+                        if (!step.checked && !step.fixedAt) {
                           e.currentTarget.style.color = "var(--text-dim)";
                           e.currentTarget.style.borderColor = "var(--outline)";
                           e.currentTarget.style.backgroundColor = "transparent";
                         }
                       }}
                     >
-                      {step.checked ? "[X]" : "[ ]"}
+                      {step.checked && step.fixedAt ? "✓" : step.checked ? "[X]" : "[ ]"}
                     </button>
 
                     {/* Title + priority + impact */}
@@ -823,13 +883,23 @@ function RoadmapCard({
   const language = useAppLanguage();
   const l = (es: string, en: string) => (language === "en" ? en : es);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [reanalyzeError, setReanalyzeError] = useState("");
   const [activeStrategy, setActiveStrategy] = useState<Strategy>(
     normalizeStrategy(selectedRoadmap.strategy),
   );
+  type ModalState = "idle" | "prompt" | "analyzing" | "success" | "partial";
+  const [modalState, setModalState] = useState<ModalState>("idle");
+  const [partialCats, setPartialCats] = useState<string[]>([]);
+  const [modalError, setModalError] = useState("");
+  const [reanalyzing, setReanalyzing] = useState(false);
 
   useEffect(() => {
     setActiveStrategy(normalizeStrategy(selectedRoadmap.strategy));
     setShowConfirm(false);
+    setReanalyzeError("");
+    setModalState("idle");
+    setPartialCats([]);
+    setModalError("");
   }, [selectedRoadmap.id]);
 
   const normalizedUrl = normalizeRoadmapUrl(selectedRoadmap.url);
@@ -847,6 +917,109 @@ function RoadmapCard({
   };
 
   const roadmap = strategyRoadmaps[activeStrategy];
+
+  // Compute progress before early return so hooks are always called in same order
+  const _activeCategories = roadmap
+    ? roadmap.categories.filter((c) => c.steps.length > 0)
+    : [];
+  const _totalSteps = _activeCategories.reduce((s, c) => s + c.steps.length, 0);
+  const _checkedSteps = _activeCategories.reduce(
+    (s, c) => s + c.steps.filter((st) => st.checked).length,
+    0,
+  );
+
+  // Auto-open completion prompt when every step is checked
+  useEffect(() => {
+    if (_totalSteps > 0 && _checkedSteps === _totalSteps && modalState === "idle") {
+      setModalState("prompt");
+    }
+    if (_checkedSteps < _totalSteps && modalState === "prompt") {
+      setModalState("idle");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_checkedSteps, _totalSteps]);
+
+  async function runLighthouse(fromModal = false): Promise<void> {
+    const current = strategyRoadmaps[activeStrategy];
+    if (!current) return;
+    if (fromModal) {
+      setModalState("analyzing");
+      setModalError("");
+    } else {
+      setReanalyzeError("");
+      setReanalyzing(true);
+    }
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: current.url, strategy: activeStrategy }),
+      });
+      const data = await res.json() as LighthouseReport & { error?: string };
+      if (!res.ok) {
+        const msg = data?.error ?? (language === "en" ? "Analysis failed" : "Análisis fallido");
+        if (fromModal) { setModalError(msg); setModalState("prompt"); }
+        else { setReanalyzeError(msg); setReanalyzing(false); }
+        return;
+      }
+      const newScores = {
+        performance: data.categories.performance.score,
+        accessibility: data.categories.accessibility.score,
+        seo: data.categories.seo.score,
+        bestPractices: data.categories.bestPractices.score,
+      };
+      
+      // Identify which categories are now fixed (100% score)
+      const fixedCategories = (Object.keys(newScores) as (keyof typeof newScores)[])
+        .filter((k) => newScores[k] === 100);
+      const now = new Date().toISOString();
+      
+      // Update roadmap with new scores, uncheck all steps, and mark fixed items
+      updateRoadmap(current.id, (r) => ({
+        ...r,
+        previousScores: r.scores,
+        scores: newScores,
+        reanalyzedAt: now,
+        categories: r.categories.map((cat) => ({
+          ...cat,
+          currentScore: newScores[cat.category as keyof typeof newScores],
+          // Uncheck all steps; mark as fixed if category is now at 100%
+          steps: cat.steps.map((s) => ({
+            ...s,
+            checked: false,
+            fixedAt: fixedCategories.includes(cat.category as keyof typeof newScores) 
+              ? now 
+              : undefined,
+          })),
+        })),
+      }));
+      
+      if (fromModal) {
+        const allPerfect = Object.values(newScores).every((s) => s === 100);
+        if (allPerfect) {
+          setModalState("success");
+          fireConfetti();
+        } else {
+          const still = (Object.keys(newScores) as (keyof typeof newScores)[]).filter(
+            (k) => newScores[k] < 100,
+          );
+          setPartialCats(still);
+          setModalState("partial");
+        }
+      } else {
+        setReanalyzing(false);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : (language === "en" ? "Unknown error" : "Error desconocido");
+      if (fromModal) { setModalError(msg); setModalState("prompt"); }
+      else { setReanalyzeError(msg); setReanalyzing(false); }
+    }
+  }
+
+  function handleReanalyze() {
+    setReanalyzing(true);
+    runLighthouse(false);
+  }
   const selectedDate = new Date(selectedRoadmap.createdAt).toLocaleDateString(
     language === "en" ? "en-US" : "es-ES",
     {
@@ -1127,6 +1300,28 @@ function RoadmapCard({
           )}
         </div>
 
+        {/* Re-analyze error banner */}
+        {reanalyzeError && (
+          <div
+            className="flex items-center justify-between px-4 sm:px-6 py-2.5"
+            style={{
+              borderBottom: "1px solid rgba(255,78,66,0.2)",
+              backgroundColor: "rgba(255,78,66,0.06)",
+            }}
+          >
+            <span className="text-[10px]" style={{ color: "#ff4e42" }}>
+              {reanalyzeError}
+            </span>
+            <button
+              className="text-[10px] px-1.5 py-0.5"
+              style={{ color: "#ff4e42", border: "1px solid rgba(255,78,66,0.3)" }}
+              onClick={() => setReanalyzeError("")}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Language mismatch banner */}
         {(roadmap.language ?? "es") !== language && (
           <div
@@ -1204,7 +1399,328 @@ function RoadmapCard({
                 roadmapId={roadmap.id}
               />
             ))}
+          
+          {/* Re-analyze button at bottom */}
+          <button
+            className="text-[10px] px-3 py-2.5 uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-40 font-bold mt-2"
+            style={{
+              color: reanalyzing ? "var(--text-dim)" : "var(--primary-on)",
+              backgroundColor: reanalyzing ? "var(--surface-high)" : "var(--primary)",
+              border: `1px solid ${reanalyzing ? "var(--outline)" : "var(--primary)"}`,
+            }}
+            onClick={handleReanalyze}
+            disabled={reanalyzing}
+            title={l("Re-analizar con Lighthouse", "Re-analyze with Lighthouse")}
+            onMouseEnter={(e) => { if (!reanalyzing) (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
+          >
+            {reanalyzing ? (
+              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" d="M4 4v5h5M20 20v-5h-5M4.07 15a8 8 0 1013.86-8" />
+              </svg>
+            )}
+            {reanalyzing ? l("Analizando...", "Analyzing...") : l("Re-analizar", "Re-analyze")}
+          </button>
         </div>
+
+        {/* Completion Modal */}
+        {modalState !== "idle" && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            style={{ opacity: 0.95 }}
+          >
+            <div
+              className="results-fade-in relative"
+              style={{
+                backgroundColor: "var(--surface)",
+                border: "1.5px solid var(--surface-high)",
+                maxWidth: "500px",
+                width: "100%",
+              }}
+            >
+              <Corners color="var(--primary)" />
+
+              {/* Prompt State: All steps checked, asking for confirmation */}
+              {modalState === "prompt" && (
+                <>
+                  <div
+                    className="px-6 py-4"
+                    style={{
+                      borderBottom: "1px solid var(--surface-high)",
+                      backgroundColor: "var(--surface-high)",
+                    }}
+                  >
+                    <h2
+                      className="text-sm font-bold tracking-widest"
+                      style={{ color: "var(--primary)" }}
+                    >
+                      {l("CONFIRMACIÓN", "CONFIRMATION")}
+                    </h2>
+                  </div>
+
+                  <div className="px-6 py-5 flex flex-col gap-4">
+                    <p
+                      className="text-xs leading-relaxed"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {l(
+                        "¡Parece que completaste todo el roadmap! 🎉 Confirma que todos los cambios están listos ejecutando un nuevo análisis de Lighthouse para verificar que alcanzamos el 100%.",
+                        "It looks like you've completed the entire roadmap! 🎉 Confirm that all changes are ready by running a new Lighthouse analysis to verify we achieved 100%."
+                      )}
+                    </p>
+
+                    {modalError && (
+                      <div
+                        className="px-3 py-2 text-[10px]"
+                        style={{
+                          backgroundColor: "rgba(255,78,66,0.12)",
+                          border: "1px solid rgba(255,78,66,0.3)",
+                          color: "#ff4e42",
+                        }}
+                      >
+                        {modalError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 justify-end pt-2">
+                      <button
+                        className="text-[10px] px-3 py-2 uppercase tracking-wider transition-colors"
+                        style={{
+                          color: "var(--text-dim)",
+                          border: "1px solid var(--outline)",
+                        }}
+                        onClick={() => setModalState("idle")}
+                      >
+                        {l("Cancelar", "Cancel")}
+                      </button>
+                      <button
+                        className="text-[10px] px-3 py-2 uppercase tracking-wider font-bold disabled:opacity-40 transition-all"
+                        style={{
+                          color: "var(--primary-on)",
+                          backgroundColor: "var(--primary)",
+                          border: "1px solid var(--primary)",
+                        }}
+                        onClick={() => runLighthouse(true)}
+                        disabled={modalState === "analyzing"}
+                        onMouseEnter={(e) => {
+                          if (modalState !== "analyzing") {
+                            (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                        }}
+                      >
+                        {modalState === "analyzing" ? l("Analizando...", "Analyzing...") : l("Re-analizar", "Re-analyze")}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Analyzing State */}
+              {modalState === "analyzing" && (
+                <>
+                  <div
+                    className="px-6 py-4"
+                    style={{
+                      borderBottom: "1px solid var(--surface-high)",
+                      backgroundColor: "var(--surface-high)",
+                    }}
+                  >
+                    <h2
+                      className="text-sm font-bold tracking-widest flex items-center gap-2"
+                      style={{ color: "var(--primary)" }}
+                    >
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                      </svg>
+                      {l("ANALIZANDO", "ANALYZING")}
+                    </h2>
+                  </div>
+                  <div className="px-6 py-8 text-center">
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--text-dim)" }}
+                    >
+                      {l(
+                        "Ejecutando Lighthouse... Por favor espera.",
+                        "Running Lighthouse analysis... Please wait."
+                      )}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Success State: All scores 100 */}
+              {modalState === "success" && (
+                <>
+                  <div
+                    className="px-6 py-4"
+                    style={{
+                      borderBottom: "1px solid var(--surface-high)",
+                      backgroundColor: "rgba(12,206,107,0.08)",
+                      borderBottomColor: "rgba(12,206,107,0.2)",
+                    }}
+                  >
+                    <h2
+                      className="text-sm font-bold tracking-widest flex items-center gap-2"
+                      style={{ color: "#0cce6b" }}
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      {l("¡FELICIDADES!", "CONGRATULATIONS!")}
+                    </h2>
+                  </div>
+                  <div className="px-6 py-6 flex flex-col gap-4">
+                    <div className="text-center">
+                      <p
+                        className="text-sm font-bold mb-2"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {l(
+                          "🎉 ¡Alcanzaste el 100% en todas las métricas!",
+                          "🎉 You achieved 100% on all metrics!"
+                        )}
+                      </p>
+                      <p
+                        className="text-[11px] leading-relaxed"
+                        style={{ color: "var(--text-dim)" }}
+                      >
+                        {l(
+                          "Tu sitio web está en perfecto estado. Excelente trabajo en mejorar el rendimiento, accesibilidad, SEO y mejores prácticas.",
+                          "Your website is in perfect condition. Excellent work improving performance, accessibility, SEO, and best practices."
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      className="text-[10px] px-3 py-2.5 uppercase tracking-wider font-bold transition-all"
+                      style={{
+                        color: "var(--primary-on)",
+                        backgroundColor: "var(--primary)",
+                        border: "1px solid var(--primary)",
+                      }}
+                      onClick={() => setModalState("idle")}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                      }}
+                    >
+                      {l("Cerrar", "Close")}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Partial State: Some scores still need work */}
+              {modalState === "partial" && (
+                <>
+                  <div
+                    className="px-6 py-4"
+                    style={{
+                      borderBottom: "1px solid var(--surface-high)",
+                      backgroundColor: "rgba(255,164,0,0.08)",
+                      borderBottomColor: "rgba(255,164,0,0.2)",
+                    }}
+                  >
+                    <h2
+                      className="text-sm font-bold tracking-widest flex items-center gap-2"
+                      style={{ color: "#ffa400" }}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      {l("¡CASI LISTO!", "ALMOST THERE!")}
+                    </h2>
+                  </div>
+                  <div className="px-6 py-6 flex flex-col gap-4">
+                    <p
+                      className="text-xs leading-relaxed"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {l(
+                        "¡Estamos muy cerca! Aquí están las métricas que aún necesitan mejoras. Sigue trabajando en estos puntos. 💪",
+                        "We're almost there! Here are the metrics that still need improvements. Keep working on these areas. 💪"
+                      )}
+                    </p>
+
+                    {/* Show only categories that need fixing */}
+                    <div className="flex flex-col gap-2">
+                      {partialCats.map((cat) => {
+                        const scores = getScores(selectedRoadmap);
+                        const score = scores[cat as keyof typeof scores] ?? 0;
+                        const label = CATEGORY_LABELS[cat];
+                        const color = scoreToColor(score);
+                        return (
+                          <div
+                            key={cat}
+                            className="px-3 py-2 flex items-center gap-3"
+                            style={{
+                              backgroundColor: "var(--surface-high)",
+                              border: "1px solid rgba(255,164,0,0.2)",
+                            }}
+                          >
+                            <span
+                              className="text-sm font-bold tabular-nums"
+                              style={{ color, minWidth: "40px" }}
+                            >
+                              {score}
+                            </span>
+                            <span
+                              className="text-xs uppercase tracking-wider"
+                              style={{ color: "var(--text-dim)" }}
+                            >
+                              {label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-2">
+                      <button
+                        className="text-[10px] px-3 py-2 uppercase tracking-wider transition-colors"
+                        style={{
+                          color: "var(--text-dim)",
+                          border: "1px solid var(--outline)",
+                        }}
+                        onClick={() => setModalState("idle")}
+                      >
+                        {l("Seguir trabajando", "Keep working")}
+                      </button>
+                      <button
+                        className="text-[10px] px-3 py-2 uppercase tracking-wider font-bold transition-all"
+                        style={{
+                          color: "var(--primary-on)",
+                          backgroundColor: "var(--primary)",
+                          border: "1px solid var(--primary)",
+                        }}
+                        onClick={() => runLighthouse(true)}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 12px rgba(107,255,143,0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                        }}
+                      >
+                        {l("Re-analizar", "Re-analyze")}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
+import confetti from "canvas-confetti";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UrlInput } from "./url-input";
 import type { LighthouseReport } from "../api/analyze/route";
@@ -8,6 +9,12 @@ import { scoreToColor, scoreToLabel } from "../lib/score-utils";
 import { findRoadmapByUrlAndStrategy, saveRoadmap } from "../lib/storage";
 import { useAppLanguage } from "../lib/app-language";
 import type { Roadmap } from "../types/roadmap";
+
+function fireConfetti() {
+  void confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ["#0cce6b", "#6bff8f", "#00ff55", "#ffffff"] });
+  void confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0 }, colors: ["#0cce6b", "#6bff8f"] });
+  void confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1 }, colors: ["#0cce6b", "#6bff8f"] });
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ApiStatus = "idle" | "loading" | "done" | "error";
@@ -1149,6 +1156,17 @@ export function HeroSection() {
     },
     [l],
   );
+
+  // Fire confetti once when results appear and all 4 scores are 100
+  useEffect(() => {
+    if (viewState !== "results" || !report) return;
+    const all100 =
+      report.categories.performance.score === 100 &&
+      report.categories.accessibility.score === 100 &&
+      report.categories.bestPractices.score === 100 &&
+      report.categories.seo.score === 100;
+    if (all100) fireConfetti();
+  }, [viewState, report]);
 
   useEffect(() => {
     if (didHandleQueryPrefill.current) return;

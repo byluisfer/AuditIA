@@ -89,10 +89,33 @@ export function saveRoadmap(roadmap: Roadmap): string {
     // Reuse existing roadmap id for a stable reference in UI.
     const existing = list[existingIdx];
     list.splice(existingIdx, 1);
+
+    // Build a map of checked states from previous roadmap so we can restore
+    // them for steps that are still present in the new report (user's work
+    // persists; lighthouse determines what is still unresolved).
+    const checkedMap = new Map<string, boolean>();
+    for (const cat of existing.categories) {
+      for (const step of cat.steps) {
+        if (step.checked) checkedMap.set(step.id, true);
+      }
+    }
+
+    const restoredCategories = roadmap.categories.map((cat) => ({
+      ...cat,
+      steps: cat.steps.map((step) => ({
+        ...step,
+        checked: checkedMap.get(step.id) ?? step.checked,
+      })),
+    }));
+
     list.unshift({
       ...roadmap,
       id: existing.id,
       createdAt: existing.createdAt,
+      // Snapshot the old scores as previousScores for delta display
+      previousScores: existing.scores ?? undefined,
+      reanalyzedAt: new Date().toISOString(),
+      categories: restoredCategories,
     });
   } else {
     list.unshift(roadmap);
