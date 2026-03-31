@@ -64,6 +64,7 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           disabled={disabled}
+          aria-label={language === "en" ? "Website URL to analyze" : "URL del sitio web a analizar"}
           className="absolute inset-0 w-full opacity-0 cursor-text disabled:cursor-not-allowed"
           style={{ fontFamily: "inherit" }}
           suppressHydrationWarning
