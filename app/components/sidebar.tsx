@@ -451,6 +451,8 @@ export function Sidebar() {
         </button>
       </div>
 
+    </aside>
+
       {showSettings && (
         <div
           className="fixed inset-0 z-90"
@@ -621,7 +623,6 @@ export function Sidebar() {
           </div>
         </div>
       )}
-    </aside>
     </>
   );
 }

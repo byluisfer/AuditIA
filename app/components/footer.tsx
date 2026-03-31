@@ -25,6 +25,7 @@ export function Footer() {
 
   return (
     <footer
+      suppressHydrationWarning
       className="fixed bottom-0 inset-x-0 z-60 flex flex-col"
       style={{ backgroundColor: "var(--surface)" }}
     >

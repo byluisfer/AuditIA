@@ -19,7 +19,12 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
   return (
     <div
       className="flex items-center gap-4 px-6 py-5 mb-4 cursor-text"
-      style={{ backgroundColor: "var(--surface-high)" }}
+      style={{
+        backgroundColor: "var(--surface-high)",
+        outline: focused ? "1px solid var(--primary)" : "none",
+        outlineOffset: "-1px",
+        transition: "outline 0.15s ease",
+      }}
       onClick={() => inputRef.current?.focus()}
     >
       <span
@@ -31,30 +36,24 @@ export function UrlInput({ value: url, onChange, disabled }: Props) {
 
       <div className="relative flex-1 flex items-center min-w-0 overflow-hidden text-base">
         <div className="flex items-center min-w-0 pointer-events-none select-none whitespace-pre">
+          {/* Keep constant width so placeholder never shifts on focus */}
+          <span
+            className={`shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px mr-1 ${focused ? "cursor-blink" : ""}`}
+            style={{
+              backgroundColor: "var(--primary)",
+              opacity: showCursor ? 1 : 0,
+            }}
+          />
           {url ? (
             <>
               <span style={{ color: "var(--text)" }}>{url}</span>
-              {showCursor && (
-                <span
-                  className={`shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px ${focused ? "cursor-blink" : ""}`}
-                  style={{ backgroundColor: "var(--primary)" }}
-                />
-              )}
             </>
           ) : (
-            <>
-              {showCursor && (
-                <span
-                  className={`shrink-0 inline-block w-[0.55em] h-[1.15em] translate-y-px mr-1 ${focused ? "cursor-blink" : ""}`}
-                  style={{ backgroundColor: "var(--primary)" }}
-                />
-              )}
-              <span style={{ color: "var(--text-dim)" }}>
-                {language === "en"
-                  ? "https://your-site.com"
-                  : "https://tu-web.com"}
-              </span>
-            </>
+            <span style={{ color: "var(--text-dim)" }}>
+              {language === "en"
+                ? "https://your-site.com"
+                : "https://tu-web.com"}
+            </span>
           )}
         </div>
         <input
