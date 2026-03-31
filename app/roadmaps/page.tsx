@@ -312,20 +312,7 @@ function TerminalLs({
           backgroundColor: "var(--surface-high)",
         }}
       >
-        <div className="flex gap-1.5">
-          {(["#ff5f57", "#febc2e", "#28c840"] as const).map((c, i) => (
-            <span
-              key={i}
-              style={{
-                display: "inline-block",
-                width: 11,
-                height: 11,
-                borderRadius: "50%",
-                backgroundColor: c,
-              }}
-            />
-          ))}
-        </div>
+        <img src="/AuditIA.svg" alt="AuditIA" style={{ width: 20, height: 20, flexShrink: 0 }} />
         <span
           className="flex-1 text-center text-[10px] tracking-[0.25em] uppercase"
           style={{ color: "var(--text-dim)" }}

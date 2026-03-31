@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UrlInput } from "./url-input";
 import type { LighthouseReport } from "../api/analyze/route";
@@ -304,21 +305,14 @@ function TerminalLoader({
             backgroundColor: "var(--surface-high)",
           }}
         >
-          {/* Traffic lights */}
-          <div className="flex gap-1.5 shrink-0">
-            {(["#ff5f57", "#febc2e", "#28c840"] as const).map((c, i) => (
-              <span
-                key={i}
-                style={{
-                  display: "inline-block",
-                  width: 11,
-                  height: 11,
-                  borderRadius: "50%",
-                  backgroundColor: c,
-                }}
-              />
-            ))}
-          </div>
+          {/* Logo */}
+          <Image
+            src="/AuditIA.svg"
+            alt="AuditIA"
+            width={20}
+            height={20}
+            style={{ flexShrink: 0 }}
+          />
 
           {/* Title */}
           <span
@@ -614,7 +608,6 @@ function RoadmapLoader({
       setTimeout(() => setVisibleCount(i + 1), ROADMAP_TIMINGS[i]),
     );
     return () => timers.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -669,20 +662,13 @@ function RoadmapLoader({
             backgroundColor: "var(--surface-high)",
           }}
         >
-          <div className="flex gap-1.5 shrink-0">
-            {(["#ff5f57", "#febc2e", "#28c840"] as const).map((c, i) => (
-              <span
-                key={i}
-                style={{
-                  display: "inline-block",
-                  width: 11,
-                  height: 11,
-                  borderRadius: "50%",
-                  backgroundColor: c,
-                }}
-              />
-            ))}
-          </div>
+          <Image
+            src="/AuditIA.svg"
+            alt="AuditIA"
+            width={20}
+            height={20}
+            style={{ flexShrink: 0 }}
+          />
 
           <span
             className="flex-1 text-center text-xs tracking-[0.25em] uppercase"
@@ -995,21 +981,24 @@ function rlTimeUntilReset(): string {
 }
 
 function useRoadmapRateLimit() {
-  const [used, setUsed] = useState(0);
-  useEffect(() => {
-    setUsed(rlRead().count);
-  }, []);
+  const [used, setUsed] = useState(rlRead().count);
   function increment() {
     setUsed(rlIncrement());
   }
-  return { used, limit: RL_MAX, remaining: Math.max(0, RL_MAX - used), canGenerate: used < RL_MAX, increment };
+  return {
+    used,
+    limit: RL_MAX,
+    remaining: Math.max(0, RL_MAX - used),
+    canGenerate: used < RL_MAX,
+    increment,
+  };
 }
 
 // ── HeroSection ───────────────────────────────────────────────────────────────
 export function HeroSection() {
   const language = useAppLanguage();
   const isEn = language === "en";
-  const l = (es: string, en: string) => (isEn ? en : es);
+  const l = useCallback((es: string, en: string) => (isEn ? en : es), [isEn]);
   const [url, setUrl] = useState("");
   const [strategy, setStrategy] = useState<Strategy>("desktop");
   const [apiStatus, setApiStatus] = useState<ApiStatus>("idle");
@@ -1099,64 +1088,69 @@ export function HeroSection() {
     }
   }
 
-  async function runAnalyze(
-    targetUrl: string,
-    targetStrategy: Strategy,
-    options?: { autoGenerateRoadmap?: boolean },
-  ) {
-    const trimmed = targetUrl.trim();
-    if (!trimmed) return;
+  const runAnalyze = useCallback(
+    async (
+      targetUrl: string,
+      targetStrategy: Strategy,
+      options?: { autoGenerateRoadmap?: boolean },
+    ) => {
+      const trimmed = targetUrl.trim();
+      if (!trimmed) return;
 
-    setAnalysisUrl(trimmed);
-    setReport(null);
-    setErrorMessage("");
-    setApiStatus("loading");
-    setViewState("terminal");
+      setAnalysisUrl(trimmed);
+      setReport(null);
+      setErrorMessage("");
+      setApiStatus("loading");
+      setViewState("terminal");
 
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: trimmed, strategy: targetStrategy }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setErrorMessage(data?.error ?? l("Error desconocido", "Unknown error"));
-        setApiStatus("error");
-        return;
-      }
-
-      const parsedReport = data as LighthouseReport;
-      const existingRoadmap = findRoadmapByUrlAndStrategy(
-        parsedReport.url,
-        parsedReport.strategy,
-      );
-
-      setReport(parsedReport);
-      setRoadmapStatus("idle");
-      setRoadmapError("");
-      if (existingRoadmap) {
-        setPostAnalyzeAction({
-          type: "redirect-existing",
-          roadmapId: existingRoadmap.id,
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: trimmed, strategy: targetStrategy }),
         });
-      } else if (options?.autoGenerateRoadmap) {
-        setPostAnalyzeAction({ type: "auto-generate" });
-      } else {
+        const data = await res.json();
+
+        if (!res.ok) {
+          setErrorMessage(
+            data?.error ?? l("Error desconocido", "Unknown error"),
+          );
+          setApiStatus("error");
+          return;
+        }
+
+        const parsedReport = data as LighthouseReport;
+        const existingRoadmap = findRoadmapByUrlAndStrategy(
+          parsedReport.url,
+          parsedReport.strategy,
+        );
+
+        setReport(parsedReport);
+        setRoadmapStatus("idle");
+        setRoadmapError("");
+        if (existingRoadmap) {
+          setPostAnalyzeAction({
+            type: "redirect-existing",
+            roadmapId: existingRoadmap.id,
+          });
+        } else if (options?.autoGenerateRoadmap) {
+          setPostAnalyzeAction({ type: "auto-generate" });
+        } else {
+          setPostAnalyzeAction(null);
+        }
+        setApiStatus("done");
+      } catch (err) {
+        setErrorMessage(
+          err instanceof Error
+            ? err.message
+            : l("Error desconocido", "Unknown error"),
+        );
         setPostAnalyzeAction(null);
+        setApiStatus("error");
       }
-      setApiStatus("done");
-    } catch (err) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : l("Error desconocido", "Unknown error"),
-      );
-      setPostAnalyzeAction(null);
-      setApiStatus("error");
-    }
-  }
+    },
+    [l],
+  );
 
   useEffect(() => {
     if (didHandleQueryPrefill.current) return;
@@ -1173,16 +1167,20 @@ export function HeroSection() {
     const shouldAutorun = searchParams.get("autorun") === "1";
     const shouldAutoGenerateRoadmap = searchParams.get("autogenerate") === "1";
 
-    setUrl(prefillUrl);
-    setStrategy(prefillStrategy);
     didHandleQueryPrefill.current = true;
 
-    if (shouldAutorun) {
-      void runAnalyze(prefillUrl, prefillStrategy, {
-        autoGenerateRoadmap: shouldAutoGenerateRoadmap,
-      });
-    }
-  }, [searchParams]);
+    // Update state and trigger autorun in microtask to batch updates
+    Promise.resolve().then(() => {
+      setUrl(prefillUrl);
+      setStrategy(prefillStrategy);
+
+      if (shouldAutorun) {
+        void runAnalyze(prefillUrl, prefillStrategy, {
+          autoGenerateRoadmap: shouldAutoGenerateRoadmap,
+        });
+      }
+    });
+  }, [searchParams, runAnalyze]);
 
   async function handleGenerateRoadmap() {
     if (!report) return;

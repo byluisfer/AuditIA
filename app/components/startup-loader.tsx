@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useAppLanguage } from "../lib/app-language";
+
+const AsciiLogo = dynamic(
+  () => import("./ascii-logo").then((m) => ({ default: m.AsciiLogo })),
+  { ssr: false },
+);
 
 const MIN_VISIBLE_MS = 3500;
 const MAX_VISIBLE_MS = 6000;
@@ -30,11 +36,17 @@ const BOOT_LINES = {
 export function StartupLoader() {
   const language = useAppLanguage();
   const bootLines = BOOT_LINES[language];
+  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(true);
   const [fadingOut, setFadingOut] = useState(false);
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState(0);
   const [visibleLines, setVisibleLines] = useState<number[]>([]);
+
+  // Mount only on client to avoid SSR/hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Animate progress bar
   useEffect(() => {
@@ -107,48 +119,40 @@ export function StartupLoader() {
     return () => window.clearTimeout(t);
   }, [ready]);
 
-  if (!visible) return null;
+  if (!mounted || !visible) return null;
+
+  const currentLine = bootLines[visibleLines[visibleLines.length - 1]];
 
   return (
     <div
       className={`startup-loader ${fadingOut ? "startup-loader-out" : ""}`}
       aria-label={language === "en" ? "Loading AuditIA" : "Cargando AuditIA"}
     >
-      <div className="startup-inner">
-        {/* Spinning logo */}
-        <div className="startup-cube" aria-hidden="true">
-          <img
-            src="/Cubepath.svg"
-            alt="AuditIA"
-            className="startup-cube-logo"
-          />
+      {/* 3D ASCII logo */}
+      <div className="startup-cube" aria-hidden="true">
+        <AsciiLogo />
+      </div>
+
+      {/* Bottom status + progress */}
+      <div className="startup-bottom">
+        <div className="startup-status" aria-live="polite">
+          <span className="startup-prompt">▸</span>
+          <span className="startup-status-text">{currentLine?.text ?? ""}</span>
+          {!ready && <span className="startup-cursor" aria-hidden="true" />}
         </div>
 
-        {/* Terminal panel */}
-        <div className="startup-terminal" aria-live="polite">
-          <div className="startup-terminal-lines">
-            {bootLines.map((line, i) => (
-              <div
-                key={i}
-                className={`startup-terminal-line ${visibleLines.includes(i) ? "startup-line-visible" : ""}`}
-              >
-                <span className="startup-prompt">▸</span>
-                <span className="startup-line-text">{line.text}</span>
-                {i === visibleLines[visibleLines.length - 1] && !ready && (
-                  <span className="startup-cursor" aria-hidden="true" />
-                )}
-              </div>
-            ))}
+        <div className="startup-progress-track" aria-hidden="true">
+          <div
+            className="startup-progress-fill"
+            style={{ width: `${progress}%` }}
+          >
+            <span className="startup-progress-dot" />
           </div>
+        </div>
 
-          {/* Progress bar */}
-          <div className="startup-progress-wrap" aria-hidden="true">
-            <div
-              className="startup-progress-bar"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="startup-progress-label">{Math.round(progress)}%</div>
+        <div className="startup-progress-label">
+          <span>{Math.round(progress)}%</span>
+          <span>AuditIA</span>
         </div>
       </div>
     </div>

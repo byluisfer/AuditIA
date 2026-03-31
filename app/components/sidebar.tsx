@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppLanguage, setAppLanguage } from "../lib/app-language";
@@ -102,7 +103,24 @@ const COLLAPSED_W = "3.5rem";
 export function Sidebar() {
   const initialCollapsed = useSidebarInitialCollapsed();
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    if (typeof window === "undefined") return "dark";
+    const rawStored = localStorage.getItem(THEME_KEY);
+    const resolvedTheme: ThemeMode =
+      rawStored === "light" || rawStored === "dark"
+        ? rawStored
+        : document.documentElement.getAttribute("data-theme") === "light"
+          ? "light"
+          : document.documentElement.getAttribute("data-theme") === "dark"
+            ? "dark"
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+    document.documentElement.setAttribute("data-theme", resolvedTheme);
+    localStorage.setItem(THEME_KEY, resolvedTheme);
+    document.cookie = `${THEME_KEY}=${resolvedTheme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax`;
+    return resolvedTheme;
+  });
   const language = useAppLanguage();
 
   const collapsed = useSyncExternalStore(
@@ -126,25 +144,6 @@ export function Sidebar() {
   }, [collapsed]);
 
   useEffect(() => {
-    const rawStored = localStorage.getItem(THEME_KEY);
-    const resolvedTheme: ThemeMode =
-      rawStored === "light" || rawStored === "dark"
-        ? rawStored
-        : document.documentElement.getAttribute("data-theme") === "light"
-          ? "light"
-          : document.documentElement.getAttribute("data-theme") === "dark"
-            ? "dark"
-            : window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light";
-
-    setTheme(resolvedTheme);
-    document.documentElement.setAttribute("data-theme", resolvedTheme);
-    localStorage.setItem(THEME_KEY, resolvedTheme);
-    document.cookie = `${THEME_KEY}=${resolvedTheme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax`;
-  }, []);
-
-  useEffect(() => {
     if (!showSettings) return;
 
     function onKeyDown(ev: KeyboardEvent) {
@@ -155,6 +154,12 @@ export function Sidebar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [showSettings]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
+    document.cookie = `${THEME_KEY}=${theme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax`;
+  }, [theme]);
+
   function toggle() {
     const next = !collapsed;
     localStorage.setItem(SIDEBAR_KEY, String(next));
@@ -164,9 +169,6 @@ export function Sidebar() {
 
   function setThemeMode(nextTheme: ThemeMode) {
     setTheme(nextTheme);
-    document.documentElement.setAttribute("data-theme", nextTheme);
-    localStorage.setItem(THEME_KEY, nextTheme);
-    document.cookie = `${THEME_KEY}=${nextTheme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax`;
   }
 
   function setLanguageMode(nextLanguage: "es" | "en") {
@@ -195,7 +197,14 @@ export function Sidebar() {
         }}
       >
         {!collapsed && (
-          <div className="flex items-baseline gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Image
+              src="/AuditIA.svg"
+              alt="AuditIA"
+              width={22}
+              height={22}
+              style={{ flexShrink: 0, width: 22, height: 22 }}
+            />
             <span
               className="text-sm font-black tracking-widest uppercase"
               style={{
@@ -205,12 +214,6 @@ export function Sidebar() {
             >
               AUDIT
               <span style={{ color: "var(--text)", opacity: 0.6 }}>_IA</span>
-            </span>
-            <span
-              className="text-[9px] tracking-[0.18em] uppercase"
-              style={{ color: "var(--text-dim)", opacity: 0.3 }}
-            >
-              v1.0.0
             </span>
           </div>
         )}
